@@ -1,451 +1,480 @@
-TAKA Multi-Tenant Adventure Platform — Technical Specification
+TAKA PLATFORM — TECHNICAL SPECIFICATION (Cursor-Optimized)
 
-Version: 1.0
-Maintainer: SuperAdmin (platform owner)
+Version 1.1
+Format: Cursor-First Architecture Document
+Author: SuperAdmin
 
-1. SYSTEM OVERVIEW
+=====================================
+0. SYSTEM SUMMARY
+=====================================
 
-TAKA is a multi-tenant SaaS platform that allows:
+TAKA ir multi-tenant SaaS sistēma, kas ļauj pārgājienu organizatoriem:
 
-1.1. Tenants (pārgājienu organizatori) to:
+veidot landing lapas (drag & drop)
 
-Create and manage their own adventure events (pārgājieni)
+pieņemt B2C un B2B reģistrācijas
 
-Manage B2C and B2B client registrations
+pieņemt online maksājumus
 
-Accept online payments
+nosūtīt automatizētu e-pastu plūsmas
 
-Track expenses and income
+pārvaldīt izmaksas un ienākumus
 
-Build custom Landing Pages with drag & drop blocks
+redzēt analītiku
 
-Use AI to generate marketing content
+izmantot AI satura ģenerēšanai
 
-Send automated reminder emails
+pievienot un pārvaldīt komandu
 
-Manage guides, prices, dynamic discounts
+strādāt ar unikālu kontaktformu sistēmu
 
-Customize their UI (fonts, colors, themes)
+pārvaldīt GDPR un drošības piekrišanas
 
-Embed contact forms into third-party websites
+SuperAdmin var:
 
-Maintain GDPR consent logs
+pārvaldīt visus tenantus
 
-Manage multi-user teams in their admin panel
+pārslēgties viņu paneļos
 
-1.2. SuperAdmin to:
+redzēt pilno analītiku
 
-Manage all tenants
+apturēt/aktivizēt tenantus
 
-Switch into any tenant dashboard
+pārvaldīt cenu modeli
 
-Suspend/activate tenant accounts
+Šis dokuments definē sistēmas struktūru, moduļus, datubāzes modeli un API prasības.
 
-See analytics for each tenant (income, expenses, B2B statuses)
+=====================================
+1. SYSTEM ARCHITECTURE
+=====================================
+1.1. Stack (mandatory)
 
-View tenant subscription or revenue share model
+Next.js 15 (App Router)
 
-Edit landing pages of tenants
+TypeScript
 
-Preview and restore previous landing versions
+Prisma ORM
 
-Global financial dashboards (across all tenants)
+PostgreSQL (Supabase)
 
-2. USER ROLES
-2.1. SuperAdmin
+Supabase Auth + RLS
 
-Full access to every tenant
+TailwindCSS
 
-Can impersonate tenant admins
+Shadcn UI
 
-Set platform pricing model (subscription or revenue share)
+Stripe / Paysera
 
-Suspend tenant instances
+Supabase Storage
 
-View global analytics
+1.2. Multi-tenant rules
 
-Manage global landing templates
-
-2.2. Tenant Admin
-
-Full control over their instance
-
-Manage events, landing pages, analytics
-
-Handle B2C and B2B
-
-Add team members
-
-Manage appearance and branding
-
-2.3. Tenant Team Member
-
-Restricted access (events only, or financials only)
-
-2.4. B2C Customer (public)
-
-Registers for a public event
-
-Can pay online
-
-Receives receipts + reminder emails
-
-Signs GDPR & safety consent digitally
-
-2.5. B2B Lead
-
-Registers via B2B contact form
-
-Can be converted to B2B Deal inside admin panel
-
-Receives proposals and invoices
-
-3. MULTI-TENANCY ARCHITECTURE
-Database
-
-Single database with shared schema
+Single database, shared schema
 
 Every table includes:
 
-tenantId (UUID)
+tenantId  (UUID)
 createdAt
 updatedAt
 
-Access Control
 
-Middleware enforces tenantId on every request
+Middleware enforces tenant boundaries
 
-SuperAdmin can bypass tenant restrictions
+SuperAdmin can bypass tenant filtering
 
-Tenant Provisioning
+=====================================
+2. DATABASE MODEL
+=====================================
+2.1. Tables overview
 
-When tenant registers:
+Cursor must generate these tables:
 
-New tenant row in Tenants table
+Core
 
-Default settings copied
+Tenants
 
-Default landing template created
+Users
 
-Welcome email sent
+UserRoles
 
-4. AUTHENTICATION
+Events
 
-Supabase Auth with:
+EventTypes
+
+Events
+
+EventParticipants
+
+EventExpenses
+
+B2B
+
+B2BLeads
+
+B2BDeals
+
+B2BInvoices
+
+Landing Builder
+
+LandingPages
+
+LandingBlocks
+
+LandingVersions
+
+Leads & Forms
+
+ContactForms
+
+ContactFormFields
+
+Leads
+
+Consents
+
+Consents
+
+ConsentTemplates
+
+Analytics
+
+PageViews
+
+ConversionEvents
+
+LeadSources
+
+=====================================
+3. USER ROLES AND PERMISSIONS
+=====================================
+3.1. Roles
+
+superadmin
+
+tenant_admin
+
+tenant_editor
+
+public_user
+
+3.2. Permissions summary
+
+(Implement via middleware, not per-table ACLs)
+
+Role	Permissions
+superadmin	Full access, impersonate, view all tenants
+tenant_admin	Full control over own tenant
+tenant_editor	Limited access (events only, or financials only)
+public_user	Can register & pay
+=====================================
+4. AUTHENTICATION MODULE
+=====================================
+4.1. Requirements
+
+Supabase Auth
 
 Email/password
 
 Magic link login
 
-Password reset
+CAPTCHA during registration
 
-Email verification
-All auth records include tenantId.
+4.2. Tenant registration flow
 
-5. LANDING PAGE BUILDER (Drag & Drop)
-5.1. Blocks supported
+Tenant signs up → system creates:
 
-Hero section (full-width image + heading + subtitle)
+tenant row
+
+default settings
+
+default landing page
+
+welcome email
+
+=====================================
+5. LANDING PAGE BUILDER (DRAG & DROP)
+=====================================
+5.1. Block types (must be modular)
+
+Hero
+
+Side image (L/R)
 
 Gallery
 
 Carousel
 
-Features grid
+Features
 
-FAQ accordion
+FAQ
 
-Testimonials slider
+Testimonials
 
-Side-image sections (Left/Right)
+Guides
 
-Custom HTML block
+Footer
 
-Guides showcase
+Custom HTML
 
-Footer block
+Custom Page (for Privacy, Terms)
 
-Custom pages (Privacy Policy, Terms)
+5.2. Block properties
 
-5.2. Block controls
+Every block supports:
 
-For each block:
+visibleMobile: boolean
+visibleDesktop: boolean
+backgroundColor
+backgroundImage
+contentFields (text, images)
+orderIndex
+padding / margin
+font settings
+icon settings
+animations
 
-Add
+5.3. Navigation bar
 
-Remove
+editable menu items
 
-Duplicate
+highlight item for contact form
 
-Reorder
+scrolling anchors
 
-Show/hide on Mobile
+5.4. Global settings
 
-Show/hide on Desktop
+colors
 
-Adjust padding, margins
+fonts (heading + body)
 
-Change fonts (inherits global font set)
+mobile/desktop font proportions
 
-Background color/image
+SEO settings
 
-Icons selector
+OG image
 
-Animation toggle
+favicon
 
-5.3. Global landing settings
+5.5. Publishing and versioning
 
-Logo
+publish button
 
-Navigation items (customizable)
+save draft
 
-Highlight menu item (contact form)
+version history (last 2 versions)
 
-Font families (Heading + Body)
+superadmin can override tenant design
 
-Font sizes mobile/desktop proportions
+=====================================
+6. CONTACT FORM SYSTEM
+=====================================
+6.1. Admin configurable fields
 
-Primary/secondary color palette
+Each field has:
 
-SEO settings: title, meta description, OG image
+label
+type (text, email, phone, number, dropdown)
+required (true/false)
+placeholder
+validationRules
 
-Cookie banner text
 
-5.4. Version History
+Special B2B fields:
 
-Each publish creates new version
-
-Ability to restore last 2 versions
-
-6. CONTACT FORM (fully customizable)
-
-Admin can configure:
-
-6.1. Fields:
-
-email
-
-phone
-
-name
-
-participant count
-
-company name
-
-text comment
-
-dropdown for event type
-
-custom fields
-
-Each field has settings:
-
-Required (yes/no)
-
-Placeholder
-
-Validation rules
-
-Field type
-
-Success message after submission
+companyName
+registrationNumber
+participantEstimate
 
 6.2. Anti-spam
 
 CAPTCHA
 
-Honeypot field
+honeypot field
 
-Rate limiting
+rate limiting
 
-6.3. Embeddable Mode (iframe)
+6.3. Success flow
 
-Contact form can be embedded externally
+After submission:
 
-Works as “Lead Gen Mode”
+show success message (editable)
 
-Saves leads to Leads table with source: external
+save lead
 
-7. EVENT MANAGEMENT MODULE
-7.1. Event types
+send confirmation email (optional)
 
-B2C event template
+6.4. Embeddable Mode
 
-B2B event template
+Generated iframe:
 
-Admin can create event types
+<iframe src="https://platform.com/form/{formId}?tenant={tenantId}" />
 
-7.2. Event creation
+=====================================
+7. EVENTS MODULE
+=====================================
+7.1. Event fields
+title
+description
+date
+time
+maxParticipants
+priceSingle
+priceGroup (2+)
+earlyBirdPrice
+earlyBirdDeadline
+location
+guideId
+visibility
+
+7.2. Expenses
+name
+amount
+tag
+date
+notes
+
+7.3. Manual participants
 
 Fields:
 
-Event title
-
-Description
-
-Date/time
-
-Max participants
-
-Price for 1 ticket
-
-Price for 2+ tickets
-
-Early bird price + deadline
-
-Location
-
-Guide assigned
-
-Expenses list
-
-Visibility (draft / published)
-
-7.3. Event expenses
-
-Each expense includes:
-
-Name
-
-Amount
-
-Tag (Ads, Food, Transport, Salaries, Gear, Admin, Other)
-
-Date
-
-Notes
-
-7.4. Add manual participants
-
-Name
-
-Email
-
-Phone
-
-Tickets purchased
-
-Payment status
-
-Payment type: online / cash / transfer
-
-Consent status
-
-7.5. Automated Emails
-
-Registration confirmation
-
-Reminder emails (admin chooses: 2h, 6h, 12h, 24h, 48h, custom)
-
-Weather or safety alerts
-
-Payment receipts
-
-Admin can edit templates.
-
-8. B2B DEAL MODULE
-8.1. B2B lead capture
-
-From landing:
-
+name
 email
 phone
-company name
-participant count
-event type
+ticketCount
+amountPaid
+paymentType (cash/online/transfer)
+paymentStatus
+consentStatus
+
+7.4. Automated emails
+
+registration confirmation
+
+event reminders
+
+weather/safety alerts
+
+Admin sets:
+
+timing
+
+email content
+
+=====================================
+8. B2B MODULE
+=====================================
+8.1. Lead capture fields
+email
+phone
+companyName
+participantCount
+eventType
 comment
 
-8.2. Convert to B2B deal
+8.2. Deal conversion
 
 Adds:
 
-Deal amount
+amount
+legalName
+registrationNumber
+address
+eventTime
+statusTimeline
 
-Legal company name
+8.3. Invoice generation
 
-Registration number
+PDF includes:
 
-Address
+company data
 
-Confirmed event time
+amount
 
-Status timeline:
+bank details
 
-lead
+tax info
 
-proposal sent
+due date
 
-negotiation
+System logs: sent_on, opened, paid_on.
 
-invoice sent
+=====================================
+9. PAYMENT SYSTEM
+=====================================
 
-paid
+Required:
 
-completed
+Stripe or Paysera
 
-8.3. B2B invoice generation
+one-time payments
 
-Generates PDF with:
+multi-ticket
 
-Event details
+early bird logic
 
-Company info
+receipts PDF
 
-Amount
+webhook to confirm success
 
-Tax info
+=====================================
+10. CONSENT SYSTEM (LEGAL)
+=====================================
+10.1. Consent types
 
-Payment instructions
+GDPR
 
-System logs:
+Safety waiver
 
-sent_on
+10.2. Flow
 
-opened
+If online payment:
 
-paid_on
+user checks consent boxes
 
-9. ANALYTICS MODULE
-9.1. Revenue tracking
+receives email copy
 
-B2C revenue
+stored in database
 
-B2B revenue
+If on-site payment:
 
-Total
+system generates unique consent URL
 
-Month-by-month
+user signs digitally
 
-Per event
+system logs timestamp
 
-Per event type
+=====================================
+11. ANALYTICS MODULE
+=====================================
+11.1. Revenue dashboards
 
-Per tenant (superadmin view)
+B2C
 
-9.2. Expense tracking
+B2B
 
-Event expenses
+event-level
 
-Global monthly expenses
+tenant-level
 
-Expense categories summary
+platform-level (superadmin)
 
-Tag filters
+11.2. Expenses
 
-9.3. Conversion funnels
+event expenses
 
-Landing visits
+monthly global expenses
 
-Contact form submissions
+tags filter
 
-Event registrations
+11.3. Conversion funnel
+Landing visits →
+Contact form →
+Registration →
+Payment →
+Event attendance
 
-Event payments
-
-Drop-off points
-
-9.4. Lead sources
+11.4. Lead sources
 
 Facebook Ads
 
@@ -453,88 +482,32 @@ Instagram Ads
 
 TikTok
 
-Google
-
-Influencer links
-
 Organic
 
-10. AI MODULE
-AI asks tenant onboarding questions:
+Influencers
 
-What type of adventures you offer?
+=====================================
+12. SUPERADMIN MODULE
+=====================================
 
-What makes them special?
+Functions:
 
-Pace: calm / active / intense / extreme
+list tenants
 
-Your tone: inspiring / friendly / wild / minimal
+view tenant analytics
 
-Who is your audience?
+suspend/activate tenant
 
-AI uses this to generate:
+impersonate tenant
 
-Marketing ideas
+view B2B invoices
 
-Landing page text suggestions
+view B2C revenue
 
-SEO descriptions
+edit landing pages
 
-Event descriptions
+manage subscription/revenue-share
 
-Social media captions
-
-11. FILE STORAGE
-
-All images go to Supabase Storage
-
-Tenants see only their own bucket folder
-
-12. PAYMENT SYSTEM
-
-Stripe or Paysera
-
-Supports:
-
-One-time ticket purchases
-
-Multi-ticket pricing
-
-Early bird pricing
-
-Auto receipts for B2C
-
-Auto invoice for B2B
-
-13. CONSENT & LEGAL
-Each participant must sign:
-
-GDPR data consent
-
-Safety responsibility waiver
-
-If paid onsite:
-
-Unique consent URL
-
-Signs via email
-
-System logs timestamp
-
-14. SUPERADMIN DASHBOARD
-
-Tenant list
-
-Tenant income overview
-
-Tenant B2B invoices
-
-Suspend/activate tenant
-
-Tenant settings
-
-Access tenant admin dashboard
-
-Global platform analytics
-
-END OF SPECIFICATION FILE
+=====================================
+END OF SPEC DOCUMENT
+=====================================
