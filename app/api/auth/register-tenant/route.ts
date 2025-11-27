@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { hashPassword, createSessionToken, attachSessionCookie } from '@/lib/auth';
 import { getPrisma } from '@/lib/db';
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     const passwordHash = await hashPassword(input.adminPassword);
 
-    const { tenant, user } = await prisma.$transaction(async (tx: PrismaClient) => {
+    const { tenant, user } = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const createdTenant = await tx.tenant.create({
         data: {
           name: input.tenantName,
