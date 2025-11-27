@@ -1,6 +1,5 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import type { JsonValue } from '@prisma/client/runtime/library';
 
 import { getPrisma } from '@/lib/db';
 
@@ -10,7 +9,7 @@ type CreateReceiptParams = {
   amount: Decimal;
   currency: string;
   paymentReference: string;
-  metadata?: JsonValue;
+  metadata?: Prisma.InputJsonValue | null;
 };
 
 type ReceiptClient = Pick<PrismaClient, 'receipt'>;
@@ -24,7 +23,7 @@ export async function ensureB2CReceipt(
     update: {
       amount,
       currency,
-      metadata,
+      metadata: metadata === null ? Prisma.JsonNull : metadata,
       paymentReference,
       tenantId,
       pdfUrl: null,
@@ -36,7 +35,7 @@ export async function ensureB2CReceipt(
       participantId,
       amount,
       currency,
-      metadata,
+      metadata: metadata === null ? Prisma.JsonNull : metadata,
       paymentReference,
       type: 'B2C',
       issuedAt: new Date()
