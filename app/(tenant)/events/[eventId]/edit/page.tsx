@@ -31,12 +31,9 @@ async function getEvent(eventId: string) {
   return event;
 }
 
-type EditPageProps = {
-  params: { eventId: string };
-};
-
-export default async function EditEventPage({ params }: EditPageProps) {
-  const event = await getEvent(params.eventId);
+export default async function Page({ params }: { params: { eventId: string } }) {
+  const { eventId } = params;
+  const event = await getEvent(eventId);
 
   return (
     <section className="space-y-6">
