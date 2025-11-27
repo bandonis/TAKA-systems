@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { getPrisma } from '@/lib/db';
 import { calculateEventPrice } from '@/lib/events';
@@ -70,7 +70,7 @@ export const POST = withTenantRoute(
     }
 
     const result = await prisma.$transaction(
-      async (tx: PrismaClient) => {
+      async (tx: Prisma.TransactionClient) => {
         const event = await tx.event.findFirst({
           where: { id: eventId, tenantId: tenant.tenantId }
         });
