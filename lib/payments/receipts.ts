@@ -1,5 +1,6 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import type { JsonValue } from '@prisma/client/runtime/library';
 
 import { getPrisma } from '@/lib/db';
 
@@ -9,7 +10,7 @@ type CreateReceiptParams = {
   amount: Decimal;
   currency: string;
   paymentReference: string;
-  metadata?: Prisma.JsonValue;
+  metadata?: JsonValue;
 };
 
 type ReceiptClient = Pick<PrismaClient, 'receipt'>;
