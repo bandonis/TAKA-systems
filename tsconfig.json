@@ -20,6 +20,7 @@
     "paths": {
       "@/*": ["./*"]
     },
+    "typeRoots": ["./types", "./node_modules/@types"],
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,

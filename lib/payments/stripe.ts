@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 
 let stripeClient: Stripe | null = null;
+const STRIPE_API_VERSION: Stripe.StripeConfig['apiVersion'] = '2025-11-17.clover';
 
 function getStripeSecretKey() {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -13,7 +14,7 @@ function getStripeSecretKey() {
 export function getStripeClient() {
   if (!stripeClient) {
     stripeClient = new Stripe(getStripeSecretKey(), {
-      apiVersion: '2024-06-20'
+      apiVersion: STRIPE_API_VERSION
     });
   }
   return stripeClient;
