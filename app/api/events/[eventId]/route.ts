@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { getPrisma } from '@/lib/db';
 import { withTenantRoute, BadRequestError, NotFoundError } from '@/lib/tenants';
+import { normalizeParam } from '@/lib/utils/params';
 import { ensureEventBusinessRules } from '@/lib/events';
 import { EVENT_VISIBILITY_VALUES } from '@/lib/prisma/enums';
 
@@ -32,14 +33,15 @@ const updateEventSchema = z
 export const PATCH = withTenantRoute(
   async ({ tenant, params, req }) => {
     const prisma = getPrisma();
-    if (!params?.eventId) {
+    const eventId = normalizeParam(params?.eventId);
+    if (!eventId) {
       throw new BadRequestError('Event id is required');
     }
 
     const input = updateEventSchema.parse(await req.json());
 
     const event = await prisma.event.findFirst({
-      where: { id: params.eventId, tenantId: tenant.tenantId }
+      where: { id: eventId, tenantId: tenant.tenantId }
     });
 
     if (!event) {

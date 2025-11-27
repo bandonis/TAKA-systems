@@ -6,6 +6,7 @@ import { calculateEventPrice } from '@/lib/events';
 import { withTenantRoute, BadRequestError, ConflictError, NotFoundError } from '@/lib/tenants';
 import { getStripeClient, getPublicUrl } from '@/lib/payments';
 import { PAYMENT_STATUS } from '@/lib/prisma/enums';
+import { normalizeParam } from '@/lib/utils/params';
 
 export const runtime = "nodejs";
 
@@ -19,12 +20,12 @@ const requestSchema = z
 export const POST = withTenantRoute(
   async ({ tenant, params, req }) => {
     const prisma = getPrisma();
-    if (!params?.eventId || !params.participantId) {
+    const eventId = normalizeParam(params?.eventId);
+    const participantId = normalizeParam(params?.participantId);
+
+    if (!eventId || !participantId) {
       throw new BadRequestError('Event and participant ids are required');
     }
-
-    const eventId = Array.isArray(params.eventId) ? params.eventId[0] : params.eventId;
-    const participantId = Array.isArray(params.participantId) ? params.participantId[0] : params.participantId;
 
     const payload = await req.json().catch(() => ({}));
     const input = requestSchema.parse(payload ?? {});

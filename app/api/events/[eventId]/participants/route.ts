@@ -7,6 +7,7 @@ import { getPrisma } from '@/lib/db';
 import { calculateEventPrice } from '@/lib/events';
 import { withTenantRoute, BadRequestError, NotFoundError, ConflictError } from '@/lib/tenants';
 import { PAYMENT_STATUS, PAYMENT_TYPE } from '@/lib/prisma/enums';
+import { normalizeParam } from '@/lib/utils/params';
 
 export const runtime = "nodejs";
 
@@ -21,12 +22,13 @@ const registerSchema = z.object({
 export const GET = withTenantRoute(
   async ({ tenant, params }) => {
     const prisma = getPrisma();
-    if (!params?.eventId) {
+    const eventId = normalizeParam(params?.eventId);
+    if (!eventId) {
       throw new BadRequestError('Event id is required');
     }
 
     const event = await prisma.event.findFirst({
-      where: { id: params.eventId, tenantId: tenant.tenantId },
+      where: { id: eventId, tenantId: tenant.tenantId },
       select: { id: true }
     });
 
@@ -47,7 +49,8 @@ export const GET = withTenantRoute(
 export const POST = withTenantRoute(
   async ({ tenant, params, req }) => {
     const prisma = getPrisma();
-    if (!params?.eventId) {
+    const eventId = normalizeParam(params?.eventId);
+    if (!eventId) {
       throw new BadRequestError('Event id is required');
     }
 
@@ -69,7 +72,7 @@ export const POST = withTenantRoute(
     const result = await prisma.$transaction(
       async (tx: PrismaClient) => {
         const event = await tx.event.findFirst({
-          where: { id: params.eventId, tenantId: tenant.tenantId }
+          where: { id: eventId, tenantId: tenant.tenantId }
         });
 
         if (!event) {
