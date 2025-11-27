@@ -1,14 +1,19 @@
 import Link from 'next/link';
 import { ArrowRight, CalendarPlus, Users } from 'lucide-react';
 
-import type { Event } from '@prisma/client';
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { fetchTenantApi } from '@/lib/tenant/api';
 
+type DashboardEvent = {
+  id: string;
+  title: string;
+  date: string;
+  visibility: 'DRAFT' | 'PUBLISHED';
+};
+
 type EventsResponse = {
-  events: (Pick<Event, 'id' | 'title' | 'date' | 'visibility'> & { date: string })[];
+  events: (DashboardEvent & { date: string })[];
 };
 
 type ParticipantsResponse = {

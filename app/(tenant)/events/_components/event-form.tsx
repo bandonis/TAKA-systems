@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-import type { EventVisibility } from '@prisma/client';
+import { EVENT_VISIBILITY, type EventVisibility } from '@/lib/prisma/enums';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,8 +32,8 @@ type EventFormProps = {
 };
 
 const visibilityOptions: { label: string; value: EventVisibility }[] = [
-  { label: 'Draft', value: 'DRAFT' },
-  { label: 'Published', value: 'PUBLISHED' }
+  { label: 'Draft', value: EVENT_VISIBILITY.DRAFT },
+  { label: 'Published', value: EVENT_VISIBILITY.PUBLISHED }
 ];
 
 export function EventForm({ mode, initialData }: EventFormProps) {
@@ -41,7 +41,7 @@ export function EventForm({ mode, initialData }: EventFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [visibility, setVisibility] = useState<EventVisibility>(initialData?.visibility ?? 'DRAFT');
+  const [visibility, setVisibility] = useState<EventVisibility>(initialData?.visibility ?? EVENT_VISIBILITY.DRAFT);
 
   const defaultDate = initialData?.date ? new Date(initialData.date) : null;
   const defaultDateValue = defaultDate ? defaultDate.toISOString().split('T')[0] : '';

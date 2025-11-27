@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/cookies';
+
+export const runtime = "nodejs";
 import { TenantNavLinks } from '@/components/tenant/nav-links';
 
 export default async function TenantLayout({ children }: { children: ReactNode }) {

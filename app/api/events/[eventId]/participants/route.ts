@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { PaymentStatus, PaymentType, Prisma } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
 import { calculateEventPrice } from '@/lib/events';
 import { withTenantRoute, BadRequestError, NotFoundError, ConflictError } from '@/lib/tenants';
+import { PAYMENT_STATUS, PAYMENT_TYPE } from '@/lib/prisma/enums';
+
+export const runtime = "nodejs";
 
 const registerSchema = z.object({
   name: z.string().min(1),
@@ -17,6 +20,7 @@ const registerSchema = z.object({
 
 export const GET = withTenantRoute(
   async ({ tenant, params }) => {
+    const prisma = getPrisma();
     if (!params?.eventId) {
       throw new BadRequestError('Event id is required');
     }
@@ -42,6 +46,7 @@ export const GET = withTenantRoute(
 
 export const POST = withTenantRoute(
   async ({ tenant, params, req }) => {
+    const prisma = getPrisma();
     if (!params?.eventId) {
       throw new BadRequestError('Event id is required');
     }
@@ -62,7 +67,7 @@ export const POST = withTenantRoute(
     }
 
     const result = await prisma.$transaction(
-      async (tx) => {
+      async (tx: PrismaClient) => {
         const event = await tx.event.findFirst({
           where: { id: params.eventId, tenantId: tenant.tenantId }
         });
@@ -93,15 +98,15 @@ export const POST = withTenantRoute(
             phone: input.phone,
             ticketCount: input.ticketCount,
             amountPaid: pricing.total,
-            paymentStatus: PaymentStatus.PENDING,
-            paymentType: PaymentType.ONLINE,
+            paymentStatus: PAYMENT_STATUS.PENDING,
+            paymentType: PAYMENT_TYPE.ONLINE,
             registeredFromLandingId: landingId
           }
         });
 
         return { participant, pricing };
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      { isolationLevel: 'Serializable' }
     );
 
     return NextResponse.json(

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { PaymentStatus } from '@prisma/client';
-
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
 import { calculateEventPrice } from '@/lib/events';
 import { withTenantRoute, BadRequestError, ConflictError, NotFoundError } from '@/lib/tenants';
 import { getStripeClient, getPublicUrl } from '@/lib/payments';
+import { PAYMENT_STATUS } from '@/lib/prisma/enums';
+
+export const runtime = "nodejs";
 
 const requestSchema = z
   .object({
@@ -17,6 +18,7 @@ const requestSchema = z
 
 export const POST = withTenantRoute(
   async ({ tenant, params, req }) => {
+    const prisma = getPrisma();
     if (!params?.eventId || !params.participantId) {
       throw new BadRequestError('Event and participant ids are required');
     }
@@ -39,7 +41,7 @@ export const POST = withTenantRoute(
       throw new NotFoundError('Participant not found');
     }
 
-    if (participant.paymentStatus === PaymentStatus.PAID) {
+    if (participant.paymentStatus === PAYMENT_STATUS.PAID) {
       throw new ConflictError('Participant already paid');
     }
 

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { EventVisibility } from '@prisma/client';
-
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
 import { withTenantRoute, BadRequestError } from '@/lib/tenants';
 import { ensureEventBusinessRules } from '@/lib/events';
+import { EVENT_VISIBILITY, EVENT_VISIBILITY_VALUES, type EventVisibility } from '@/lib/prisma/enums';
+
+export const runtime = "nodejs";
 
 const eventBaseSchema = z.object({
   title: z.string().min(2),
@@ -20,7 +21,7 @@ const eventBaseSchema = z.object({
   earlyBirdDeadline: z.string().datetime().optional(),
   location: z.string().optional(),
   guideName: z.string().optional(),
-  visibility: z.nativeEnum(EventVisibility).optional()
+  visibility: z.enum(EVENT_VISIBILITY_VALUES).optional()
 });
 
 const createEventSchema = eventBaseSchema.refine(
@@ -30,8 +31,12 @@ const createEventSchema = eventBaseSchema.refine(
 
 export const GET = withTenantRoute(
   async ({ tenant, req }) => {
+    const prisma = getPrisma();
     const url = new URL(req.url);
-    const visibility = url.searchParams.get('visibility') as EventVisibility | null;
+    const visibilityParam = url.searchParams.get('visibility');
+    const visibility = EVENT_VISIBILITY_VALUES.includes(visibilityParam as EventVisibility)
+      ? (visibilityParam as EventVisibility)
+      : null;
 
     const events = await prisma.event.findMany({
       where: {
@@ -48,6 +53,7 @@ export const GET = withTenantRoute(
 
 export const POST = withTenantRoute(
   async ({ tenant, req }) => {
+    const prisma = getPrisma();
     const data = await req.json();
     const input = createEventSchema.parse(data);
 
@@ -87,7 +93,7 @@ export const POST = withTenantRoute(
         earlyBirdDeadline,
         location: input.location,
         guideName: input.guideName,
-        visibility: input.visibility ?? EventVisibility.DRAFT
+        visibility: input.visibility ?? EVENT_VISIBILITY.DRAFT
       }
     });
 

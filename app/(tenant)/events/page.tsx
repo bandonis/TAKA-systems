@@ -1,18 +1,25 @@
 import Link from 'next/link';
 import { CalendarClock, Edit, Eye, PlusCircle } from 'lucide-react';
 
-import type { Event } from '@prisma/client';
-
 import { fetchTenantApi } from '@/lib/tenant/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import type { EventVisibility } from '@/lib/prisma/enums';
 
-type EventsResponse = {
-  events: (Pick<Event, 'id' | 'title' | 'date' | 'visibility' | 'location'> & { date: string })[];
+type EventSummary = {
+  id: string;
+  title: string;
+  date: string;
+  visibility: EventVisibility;
+  location?: string | null;
 };
 
-const visibilityMap: Record<string, { label: string; variant: 'success' | 'warning' | 'outline' }> = {
+type EventsResponse = {
+  events: EventSummary[];
+};
+
+const visibilityMap: Record<EventVisibility, { label: string; variant: 'success' | 'warning' | 'outline' }> = {
   PUBLISHED: { label: 'Published', variant: 'success' },
   DRAFT: { label: 'Draft', variant: 'outline' }
 };

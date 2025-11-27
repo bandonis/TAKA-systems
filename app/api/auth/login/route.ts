@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { TenantStatus } from '@prisma/client';
-
 import { verifyPassword, createSessionToken, attachSessionCookie } from '@/lib/auth';
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
+import { TENANT_STATUS } from '@/lib/prisma/enums';
+
+export const runtime = "nodejs";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -13,6 +14,7 @@ const loginSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const prisma = getPrisma();
     const body = await req.json();
     const input = loginSchema.parse(body);
 
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    if (user.tenant && user.tenant.status === TenantStatus.SUSPENDED) {
+    if (user.tenant && user.tenant.status === TENANT_STATUS.SUSPENDED) {
       return NextResponse.json({ error: 'Tenant is suspended' }, { status: 403 });
     }
 

@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/cookies';
+
+export const runtime = "nodejs";
 
 export default async function SuperadminLayout({ children }: { children: ReactNode }) {
   const session = await getSession();

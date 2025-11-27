@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-import { PaymentStatus, PaymentType, Prisma } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
 import { ensureB2CReceipt, getStripeClient } from '@/lib/payments';
+import { PAYMENT_STATUS, PAYMENT_TYPE } from '@/lib/prisma/enums';
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 function getWebhookSecret() {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -17,6 +19,7 @@ function getWebhookSecret() {
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const prisma = getPrisma();
   const metadata = session.metadata || {};
   const tenantId = metadata.tenantId;
   const participantId = metadata.participantId;
@@ -25,7 +28,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: PrismaClient) => {
     const participant = await tx.eventParticipant.findFirst({
       where: { id: participantId, tenantId }
     });
@@ -34,7 +37,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       return;
     }
 
-    if (participant.paymentStatus === PaymentStatus.PAID) {
+    if (participant.paymentStatus === PAYMENT_STATUS.PAID) {
       return;
     }
 
@@ -46,13 +49,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const currency = session.currency?.toUpperCase() ?? 'EUR';
     const paymentReference = (session.payment_intent ?? session.id).toString();
 
-    const amountDecimal = new Prisma.Decimal(amountTotal).dividedBy(100);
+    const amountDecimal = new Decimal(amountTotal).dividedBy(100);
 
     await tx.eventParticipant.update({
       where: { id: participant.id },
       data: {
-        paymentStatus: PaymentStatus.PAID,
-        paymentType: PaymentType.ONLINE,
+        paymentStatus: PAYMENT_STATUS.PAID,
+        paymentType: PAYMENT_TYPE.ONLINE,
         stripeSessionId: session.id,
         paymentReference,
         amountPaid: amountDecimal

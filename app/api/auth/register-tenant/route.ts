@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { TenantStatus, UserRole } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 
 import { hashPassword, createSessionToken, attachSessionCookie } from '@/lib/auth';
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
+import { TENANT_STATUS, USER_ROLES } from '@/lib/prisma/enums';
+
+export const runtime = "nodejs";
 
 const registerSchema = z.object({
   tenantName: z.string().min(2, 'Tenant name must be at least 2 characters long'),
@@ -16,6 +19,7 @@ const registerSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const prisma = getPrisma();
     const body = await req.json();
     const input = registerSchema.parse(body);
 
@@ -29,13 +33,13 @@ export async function POST(req: Request) {
 
     const passwordHash = await hashPassword(input.adminPassword);
 
-    const { tenant, user } = await prisma.$transaction(async (tx) => {
+    const { tenant, user } = await prisma.$transaction(async (tx: PrismaClient) => {
       const createdTenant = await tx.tenant.create({
         data: {
           name: input.tenantName,
           language: input.language,
           primaryColor: input.primaryColor,
-          status: TenantStatus.ACTIVE
+          status: TENANT_STATUS.ACTIVE
         }
       });
 
@@ -51,7 +55,7 @@ export async function POST(req: Request) {
         data: {
           email: input.adminEmail,
           passwordHash,
-          role: UserRole.ADMIN,
+          role: USER_ROLES.ADMIN,
           tenantId: createdTenant.id
         }
       });

@@ -1,20 +1,27 @@
-import { Event, Prisma } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
 export type PricingStrategy = 'EARLY_BIRD' | 'GROUP' | 'SINGLE';
 
 export type PricingResult = {
   strategy: PricingStrategy;
-  unitPrice: Prisma.Decimal;
-  total: Prisma.Decimal;
+  unitPrice: Decimal;
+  total: Decimal;
 };
 
-export function calculateEventPrice(event: Event, ticketCount: number): PricingResult {
+type EventWithPricing = {
+  earlyBirdDeadline: Date | null;
+  earlyBirdPrice: Decimal | null;
+  priceGroup: Decimal | null;
+  priceSingle: Decimal | null;
+};
+
+export function calculateEventPrice(event: EventWithPricing, ticketCount: number): PricingResult {
   if (ticketCount < 1) {
     throw new Error('ticketCount must be at least 1');
   }
 
   const now = new Date();
-  const decimalTicketCount = new Prisma.Decimal(ticketCount);
+  const decimalTicketCount = new Decimal(ticketCount);
 
   if (event.earlyBirdDeadline && event.earlyBirdDeadline >= now && event.earlyBirdPrice) {
     return {

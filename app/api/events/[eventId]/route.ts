@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { EventVisibility } from '@prisma/client';
-
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
 import { withTenantRoute, BadRequestError, NotFoundError } from '@/lib/tenants';
 import { ensureEventBusinessRules } from '@/lib/events';
+import { EVENT_VISIBILITY_VALUES } from '@/lib/prisma/enums';
+
+export const runtime = "nodejs";
 
 const updateEventSchema = z
   .object({
@@ -21,7 +22,7 @@ const updateEventSchema = z
     earlyBirdDeadline: z.string().datetime().optional(),
     location: z.string().optional(),
     guideName: z.string().optional(),
-    visibility: z.nativeEnum(EventVisibility).optional()
+    visibility: z.enum(EVENT_VISIBILITY_VALUES).optional()
   })
   .refine(
     (data) => Object.keys(data).length > 0,
@@ -30,6 +31,7 @@ const updateEventSchema = z
 
 export const PATCH = withTenantRoute(
   async ({ tenant, params, req }) => {
+    const prisma = getPrisma();
     if (!params?.eventId) {
       throw new BadRequestError('Event id is required');
     }

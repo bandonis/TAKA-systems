@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import type { UserRole } from '@prisma/client';
 import { z } from 'zod';
 
 import { getSessionFromHeaders } from '@/lib/auth/session';
+import type { UserRole } from '@/lib/prisma/enums';
 
 export class HttpError extends Error {
   status: number;
@@ -88,19 +88,20 @@ export async function requireTenantContext(req: Request): Promise<TenantRequestC
 }
 
 type RouteContext<P> = {
-  params?: P;
+  params: Promise<P>;
 };
 
 type TenantRouteHandler<P> = (args: { req: Request; tenant: TenantRequestContext; params?: P }) => Promise<Response>;
 
-export function withTenantRoute<P = Record<string, string>>(
+export function withTenantRoute<P = Record<string, string | string[] | undefined>>(
   handler: TenantRouteHandler<P>,
   options?: { onError?: string }
 ) {
-  return async (req: Request, routeContext?: RouteContext<P>) => {
+  return async (req: Request, routeContext: RouteContext<P>) => {
     try {
       const tenant = await requireTenantContext(req);
-      return await handler({ req, tenant, params: routeContext?.params });
+      const params = routeContext?.params ? await routeContext.params : undefined;
+      return await handler({ req, tenant, params });
     } catch (error) {
       if (error instanceof HttpError) {
         return NextResponse.json({ error: error.message }, { status: error.status });

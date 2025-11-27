@@ -1,22 +1,33 @@
 import Link from 'next/link';
 
-import type { Event, EventParticipant } from '@prisma/client';
-
 import { fetchTenantApi } from '@/lib/tenant/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import type { PaymentStatus } from '@/lib/prisma/enums';
+
+type EventOption = {
+  id: string;
+  title: string;
+  date: string;
+};
 
 type EventsResponse = {
-  events: (Pick<Event, 'id' | 'title' | 'date'> & { date: string })[];
+  events: EventOption[];
 };
 
 type ParticipantsResponse = {
-  participants: Pick<EventParticipant, 'id' | 'name' | 'email' | 'ticketCount' | 'paymentStatus'>[];
+  participants: {
+    id: string;
+    name: string;
+    email: string;
+    ticketCount: number;
+    paymentStatus: PaymentStatus;
+  }[];
 };
 
 type ParticipantsPageProps = {
-  searchParams: { eventId?: string };
+  searchParams?: Promise<{ eventId?: string }>;
 };
 
 function pickEvent(events: EventsResponse['events'], preferredId?: string) {
@@ -34,8 +45,9 @@ function pickEvent(events: EventsResponse['events'], preferredId?: string) {
 }
 
 export default async function ParticipantsPage({ searchParams }: ParticipantsPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const { events } = await fetchTenantApi<EventsResponse>('/api/events');
-  const selectedEvent = pickEvent(events, searchParams.eventId);
+  const selectedEvent = pickEvent(events, resolvedSearchParams.eventId);
 
   let participants: ParticipantsResponse['participants'] = [];
   if (selectedEvent) {

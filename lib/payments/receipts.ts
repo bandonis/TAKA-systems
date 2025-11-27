@@ -1,21 +1,22 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
 
 type CreateReceiptParams = {
   tenantId: string;
   participantId: string;
-  amount: Prisma.Decimal;
+  amount: Decimal;
   currency: string;
   paymentReference: string;
   metadata?: Record<string, unknown>;
 };
 
-type ReceiptClient = PrismaClient | Prisma.TransactionClient;
+type ReceiptClient = Pick<PrismaClient, 'receipt'>;
 
 export async function ensureB2CReceipt(
   { tenantId, participantId, amount, currency, paymentReference, metadata }: CreateReceiptParams,
-  client: ReceiptClient = prisma
+  client: ReceiptClient = getPrisma()
 ) {
   return client.receipt.upsert({
     where: { participantId },

@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 
 import { clearSessionCookie, getSession } from '@/lib/auth';
-import { prisma } from '@/lib/db';
+import { getPrisma } from '@/lib/db';
+
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
+    const prisma = getPrisma();
     const session = await getSession();
 
     if (!session) {

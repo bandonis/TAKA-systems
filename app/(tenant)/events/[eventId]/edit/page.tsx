@@ -31,10 +31,12 @@ async function getEvent(eventId: string) {
   return event;
 }
 
-export default async function Page(
-  { params }: { params: { eventId: string } }
-) {
-  const { eventId } = params;
+type EditEventPageProps = {
+  params: Promise<{ eventId: string }>;
+};
+
+export default async function Page({ params }: EditEventPageProps) {
+  const { eventId } = await params;
   const event = await getEvent(eventId);
 
   return (

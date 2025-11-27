@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth';
+import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth/session';
 
 const PUBLIC_PATHS = [
   '/',

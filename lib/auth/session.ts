@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { jwtVerify, SignJWT } from 'jose';
 
-import type { UserRole } from '@prisma/client';
+import type { UserRole } from '@/lib/prisma/enums';
 
 export const SESSION_COOKIE = 'taka_session';
 export const SESSION_DURATION = 60 * 60 * 24 * 7; // 7 days
