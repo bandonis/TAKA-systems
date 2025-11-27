@@ -9,7 +9,7 @@ type CreateReceiptParams = {
   amount: Decimal;
   currency: string;
   paymentReference: string;
-  metadata?: Prisma.InputJsonValue;
+  metadata?: Prisma.JsonValue;
 };
 
 type ReceiptClient = Pick<PrismaClient, 'receipt'>;
