@@ -23,14 +23,17 @@ export const POST = withTenantRoute(
       throw new BadRequestError('Event and participant ids are required');
     }
 
+    const eventId = Array.isArray(params.eventId) ? params.eventId[0] : params.eventId;
+    const participantId = Array.isArray(params.participantId) ? params.participantId[0] : params.participantId;
+
     const payload = await req.json().catch(() => ({}));
     const input = requestSchema.parse(payload ?? {});
 
     const participant = await prisma.eventParticipant.findFirst({
       where: {
-        id: params.participantId,
+        id: participantId,
         tenantId: tenant.tenantId,
-        eventId: params.eventId
+        eventId: eventId
       },
       include: {
         event: true
