@@ -1,0 +1,195 @@
+---
+alwaysApply: true
+---
+# ================================
+#  GLOBAL WORKSPACE RULES
+# ================================
+
+You are generating code for a large, multi-tenant SaaS system called TAKA.
+All instructions in this workspace must follow these rules:
+
+================================
+1. CORE PRINCIPLES
+================================
+
+- Always respect the architecture and requirements described in `/docs/spec.md`.
+- Before coding any module, always read the spec and confirm understanding.
+- Work in small, atomic steps. Do NOT generate large patches unless explicitly asked.
+- Always show a clear diff preview before applying changes.
+- If something is unclear, ALWAYS ask clarifying questions.
+- Never invent endpoints, fields, or models not documented in the spec unless asked to.
+- Never refactor unrelated code unless explicitly instructed.
+
+================================
+2. TECH STACK RULES
+================================
+You must use the following stack:
+
+Backend:
+- Next.js 15 (App Router)
+- TypeScript
+- Prisma ORM
+- PostgreSQL (Supabase)
+- Supabase Auth
+- tRPC (preferred) or REST ONLY if requested
+- Zod validation
+
+Frontend:
+- React (inside Next.js)
+- TailwindCSS
+- Shadcn UI components
+- Zustand or Context for local state
+- React Query if needed
+- Responsive-first design
+
+Payments:
+- Stripe or Paysera (implement Stripe first unless told otherwise)
+
+Storage:
+- Supabase Storage for all images
+
+================================
+3. FILE & FOLDER STRUCTURE RULES
+================================
+Use this structure:
+
+/
+ ├─ app/
+ │   ├─ (public-facing pages)
+ │   ├─ dashboard/
+ │   ├─ api/
+ │   ├─ auth/
+ ├─ components/
+ ├─ styles/
+ ├─ lib/
+ │   ├─ auth/
+ │   ├─ db/
+ │   ├─ tenants/
+ │   ├─ utils/
+ ├─ prisma/
+ │   ├─ schema.prisma
+ ├─ docs/
+ │   ├─ spec.md
+ ├─ emails/
+ ├─ public/
+ └─ package.json
+
+Rules:
+- Never create new folders unless necessary.
+- Never put API code inside random folders — use `app/api/**`.
+- Landing builder UI lives in `/app/dashboard/landing-builder/**`.
+
+================================
+4. CODING STYLE RULES
+================================
+- Use TypeScript strict mode.
+- Use named exports, NOT default exports (unless React components).
+- Write clean, readable, documented code.
+- Use async/await ONLY (no .then chains).
+- Always use try/catch in server-side functions.
+- Validate all input with Zod.
+- NEVER hardcode URLs — use environment variables.
+
+================================
+5. MULTI-TENANCY RULES
+================================
+- Every database query MUST filter by tenantId unless superadmin.
+- All new tables MUST include tenantId field.
+- tenantId is extracted from session / JWT.
+- Superadmin bypass is allowed only when explicitly requested.
+
+================================
+6. PRISMA RULES
+================================
+- Always run schema updates incrementally.
+- NO automatic rewrites of existing models without confirmation.
+- Always show a migration plan before applying.
+
+================================
+7. API RULES
+================================
+- Prefer tRPC for internal authenticated actions.
+- Public endpoints must include rate limiting.
+- All API calls must validate:
+  - authentication
+  - authorization (role)
+  - tenantId
+  - input schema
+
+================================
+8. UI RULES
+================================
+- Use Shadcn components.
+- Use consistent Tailwind spacing.
+- All UI must be mobile-responsive.
+- Avoid inline styles.
+- Use functional components.
+- Use server actions only where appropriate.
+
+================================
+9. LANDING BUILDER RULES
+================================
+- Landing blocks must be modular and isolated.
+- DO NOT mix block types in same code file.
+- Use JSON schema for block definitions.
+- Ensure each block can be added/removed/reordered.
+- Allow mobile/desktop visibility settings.
+
+================================
+10. CONTACT FORM RULES
+================================
+- Forms must be fully dynamic based on DB-configured fields.
+- Validation must match the admin-defined rules.
+- Embeddable mode must be iframe-safe.
+
+================================
+11. PAYMENT RULES
+================================
+- Use secure Stripe flows.
+- Webhooks must validate signature.
+- Never mark payments as "paid" manually unless in dev mode.
+
+================================
+12. ANALYTICS RULES
+================================
+- Track events ONLY in allowed endpoints.
+- Do NOT send PII to analytics.
+- Conversion funnels must be clean and isolated.
+
+================================
+13. EMAIL RULES
+================================
+- Use email templates stored in `/emails`.
+- Reminders must respect admin timing settings.
+- Logs must be recorded for every sent email.
+
+================================
+14. SAFETY & CONSENT RULES
+================================
+- Always generate unique consent URLs.
+- Never delete consents.
+- Store time, IP, email, user agent.
+
+================================
+15. SUPERADMIN RULES
+================================
+- Superadmin must not see tenant passwords or sensitive auth data.
+- Superadmin may override landing pages, but MUST log changes.
+
+================================
+16. COMMUNICATION RULES
+================================
+- Before starting any module, summarize the work plan.
+- After completing any module, summarize what was done.
+- For any action involving several files, ask for confirmation.
+
+================================
+17. CHANGE CONTROL RULES
+================================
+- Never modify core structure without explicit approval.
+- Never rename folders without approval.
+- Never introduce new dependencies silently.
+
+================================
+END OF WORKSPACE RULES
+================================

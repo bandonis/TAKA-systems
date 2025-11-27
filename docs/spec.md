@@ -1,53 +1,64 @@
-TAKA PLATFORM — TECHNICAL SPECIFICATION (Cursor-Optimized)
+TAKA PLATFORM — Technical Specification (Cursor-Optimized Edition)
 
-Version 1.1
-Format: Cursor-First Architecture Document
-Author: SuperAdmin
+Version: 1.2
+Author: SuperAdmin (Platform Owner)
+Audience: Cursor (AI developer)
+Purpose: Complete MVP-to-Full System Specification for multi-tenant SaaS
 
-=====================================
-0. SYSTEM SUMMARY
-=====================================
+==========================================
+0. SYSTEM OVERVIEW
+==========================================
 
-TAKA ir multi-tenant SaaS sistēma, kas ļauj pārgājienu organizatoriem:
+TAKA is a multi-tenant SaaS system for hiking & adventure event organizers.
 
-veidot landing lapas (drag & drop)
+Each tenant gets:
 
-pieņemt B2C un B2B reģistrācijas
+their own admin dashboard
 
-pieņemt online maksājumus
+event creation & management
 
-nosūtīt automatizētu e-pastu plūsmas
+B2C & B2B registrations
 
-pārvaldīt izmaksas un ienākumus
+payment processing
 
-redzēt analītiku
+full income/expense analytics
 
-izmantot AI satura ģenerēšanai
+AI assistant for marketing
 
-pievienot un pārvaldīt komandu
+drag & drop landing builder
 
-strādāt ar unikālu kontaktformu sistēmu
+automated reminder emails
 
-pārvaldīt GDPR un drošības piekrišanas
+multi-user team roles
 
-SuperAdmin var:
+client CRM
 
-pārvaldīt visus tenantus
+GDPR & safety consent system
 
-pārslēgties viņu paneļos
+customizable contact forms
 
-redzēt pilno analītiku
+global + event-level expenses
 
-apturēt/aktivizēt tenantus
+B2B full deal lifecycle
 
-pārvaldīt cenu modeli
+A superadmin controls:
 
-Šis dokuments definē sistēmas struktūru, moduļus, datubāzes modeli un API prasības.
+all tenants
 
-=====================================
-1. SYSTEM ARCHITECTURE
-=====================================
-1.1. Stack (mandatory)
+platform-level analytics
+
+tenant subscription/revenue sharing
+
+tenant suspension/reactivation
+
+landing page override
+
+multi-tenant revenue insights
+
+==========================================
+1. TECH STACK
+==========================================
+Backend
 
 Next.js 15 (App Router)
 
@@ -57,457 +68,716 @@ Prisma ORM
 
 PostgreSQL (Supabase)
 
-Supabase Auth + RLS
+Supabase Auth
+
+Zod validation
+
+tRPC (preferred) or REST (if needed)
+
+Frontend
+
+React
 
 TailwindCSS
 
 Shadcn UI
 
-Stripe / Paysera
+Zustand / Context
 
-Supabase Storage
+Responsive-first layout
 
-1.2. Multi-tenant rules
+Storage
 
-Single database, shared schema
+Supabase Storage (tenant-isolated buckets)
 
-Every table includes:
+Payments
 
-tenantId  (UUID)
+Stripe (primary)
+
+Paysera optional future module
+
+AI
+
+GPT model (via OpenAI API)
+
+AI used for:
+
+landing text generation
+
+marketing ideas
+
+seasonal event ideas
+
+email text drafts
+
+==========================================
+2. MULTI-TENANT ARCHITECTURE
+==========================================
+2.1. Tenant isolation rules
+
+All tables include:
+
+tenantId (UUID)
 createdAt
 updatedAt
 
 
-Middleware enforces tenant boundaries
-
-SuperAdmin can bypass tenant filtering
-
-=====================================
-2. DATABASE MODEL
-=====================================
-2.1. Tables overview
-
-Cursor must generate these tables:
-
-Core
-
-Tenants
-
-Users
-
-UserRoles
-
-Events
-
-EventTypes
-
-Events
-
-EventParticipants
-
-EventExpenses
-
-B2B
-
-B2BLeads
-
-B2BDeals
-
-B2BInvoices
-
-Landing Builder
-
-LandingPages
-
-LandingBlocks
-
-LandingVersions
-
-Leads & Forms
-
-ContactForms
-
-ContactFormFields
-
-Leads
-
-Consents
-
-Consents
-
-ConsentTemplates
-
-Analytics
-
-PageViews
-
-ConversionEvents
-
-LeadSources
-
-=====================================
-3. USER ROLES AND PERMISSIONS
-=====================================
-3.1. Roles
-
-superadmin
-
-tenant_admin
-
-tenant_editor
-
-public_user
-
-3.2. Permissions summary
-
-(Implement via middleware, not per-table ACLs)
-
-Role	Permissions
-superadmin	Full access, impersonate, view all tenants
-tenant_admin	Full control over own tenant
-tenant_editor	Limited access (events only, or financials only)
-public_user	Can register & pay
-=====================================
-4. AUTHENTICATION MODULE
-=====================================
-4.1. Requirements
-
-Supabase Auth
-
-Email/password
-
-Magic link login
-
-CAPTCHA during registration
-
-4.2. Tenant registration flow
-
-Tenant signs up → system creates:
-
-tenant row
-
-default settings
-
-default landing page
-
-welcome email
-
-=====================================
-5. LANDING PAGE BUILDER (DRAG & DROP)
-=====================================
-5.1. Block types (must be modular)
-
-Hero
-
-Side image (L/R)
-
-Gallery
-
-Carousel
-
-Features
-
-FAQ
-
-Testimonials
-
-Guides
-
-Footer
-
-Custom HTML
-
-Custom Page (for Privacy, Terms)
-
-5.2. Block properties
-
-Every block supports:
-
-visibleMobile: boolean
-visibleDesktop: boolean
-backgroundColor
-backgroundImage
-contentFields (text, images)
-orderIndex
-padding / margin
-font settings
-icon settings
-animations
-
-5.3. Navigation bar
-
-editable menu items
-
-highlight item for contact form
-
-scrolling anchors
-
-5.4. Global settings
-
-colors
-
-fonts (heading + body)
-
-mobile/desktop font proportions
-
-SEO settings
-
-OG image
-
-favicon
-
-5.5. Publishing and versioning
-
-publish button
-
-save draft
-
-version history (last 2 versions)
-
-superadmin can override tenant design
-
-=====================================
-6. CONTACT FORM SYSTEM
-=====================================
-6.1. Admin configurable fields
-
-Each field has:
-
-label
-type (text, email, phone, number, dropdown)
-required (true/false)
-placeholder
-validationRules
-
-
-Special B2B fields:
-
-companyName
-registrationNumber
-participantEstimate
-
-6.2. Anti-spam
-
-CAPTCHA
-
-honeypot field
-
-rate limiting
-
-6.3. Success flow
-
-After submission:
-
-show success message (editable)
-
-save lead
-
-send confirmation email (optional)
-
-6.4. Embeddable Mode
-
-Generated iframe:
-
-<iframe src="https://platform.com/form/{formId}?tenant={tenantId}" />
-
-=====================================
-7. EVENTS MODULE
-=====================================
-7.1. Event fields
+Requests are scoped by tenantId.
+
+Superadmin bypass allowed.
+
+2.2. Tenant provisioning
+
+When a tenant registers:
+
+Tenant row created
+
+Default landing page generated
+
+Default settings copied
+
+Bucket folder created
+
+Welcome email sent
+
+==========================================
+3. DATABASE SCHEMA — TABLES
+==========================================
+
+Below are all tables Cursor must implement.
+
+3.1. Tenants
+id
+name
+logoUrl
+primaryColor
+language
+subscriptionPlan
+status (active | suspended)
+createdAt
+updatedAt
+
+3.2. Users
+id
+tenantId
+email
+passwordHash
+role (admin | editor | viewer)
+createdAt
+updatedAt
+
+3.3. EventTypes
+id
+tenantId
+name
+description
+defaultPriceSingle
+defaultPriceGroup
+defaultEarlyBirdPrice
+defaultEarlyBirdDeadline
+createdAt
+updatedAt
+
+3.4. Events
+id
+tenantId
+eventTypeId
 title
 description
 date
 time
 maxParticipants
 priceSingle
-priceGroup (2+)
+priceGroup
 earlyBirdPrice
 earlyBirdDeadline
 location
-guideId
-visibility
+guideName
+visibility (draft | published)
+createdAt
+updatedAt
 
-7.2. Expenses
-name
-amount
-tag
-date
-notes
-
-7.3. Manual participants
-
-Fields:
-
+3.5. EventParticipants (B2C)
+id
+tenantId
+eventId
 name
 email
 phone
 ticketCount
 amountPaid
-paymentType (cash/online/transfer)
-paymentStatus
-consentStatus
+paymentStatus (pending | paid)
+paymentType (online | cash | transfer)
+consentStatus (yes/no)
+registeredFrom (landingId)
+createdAt
+updatedAt
 
-7.4. Automated emails
+3.6. GlobalExpenses
+id
+tenantId
+name
+amount
+tag
+date
+notes
+createdAt
+updatedAt
 
-registration confirmation
+3.7. EventExpenses
+id
+tenantId
+eventId
+name
+amount
+tag
+date
+notes
+createdAt
+updatedAt
 
-event reminders
-
-weather/safety alerts
-
-Admin sets:
-
-timing
-
-email content
-
-=====================================
-8. B2B MODULE
-=====================================
-8.1. Lead capture fields
+3.8. B2BLeads
+id
+tenantId
 email
 phone
 companyName
-participantCount
+participantEstimate
 eventType
 comment
+source
+createdAt
+updatedAt
 
-8.2. Deal conversion
-
-Adds:
-
+3.9. B2BDeals
+id
+tenantId
+leadId
 amount
 legalName
 registrationNumber
 address
-eventTime
-statusTimeline
+eventDate
+status (lead | proposal_sent | negotiation | invoice_sent | paid | completed)
+statusTimeline JSON
+createdAt
+updatedAt
 
-8.3. Invoice generation
-
-PDF includes:
-
-company data
-
+3.10. B2BInvoices
+id
+tenantId
+dealId
+invoiceNumber
 amount
+sentAt
+openedAt
+paidAt
+pdfUrl
+createdAt
+updatedAt
 
-bank details
+3.11. ContactForms
+id
+tenantId
+name
+successMessage
+createdAt
+updatedAt
 
-tax info
+3.12. ContactFormFields
+id
+formId
+label
+type (text | email | phone | number | dropdown)
+required
+placeholder
+options JSON
+orderIndex
+createdAt
+updatedAt
 
-due date
+3.13. Leads (from contact form)
+id
+tenantId
+formId
+data JSON
+source
+createdAt
 
-System logs: sent_on, opened, paid_on.
+3.14. ConsentTemplates
+id
+tenantId
+type (gdpr | safety)
+title
+content
+createdAt
+updatedAt
 
-=====================================
-9. PAYMENT SYSTEM
-=====================================
+3.15. Consents
+id
+tenantId
+eventId (nullable)
+email
+consentType (gdpr | safety)
+contentSnapshot
+ip
+userAgent
+signedAt
+createdAt
 
-Required:
+3.16. LandingPages
+id
+tenantId
+title
+slug
+publishedVersionId
+createdAt
+updatedAt
 
-Stripe or Paysera
+3.17. LandingBlocks
+id
+landingId
+tenantId
+blockType
+content JSON
+visibleMobile
+visibleDesktop
+orderIndex
+createdAt
+updatedAt
 
-one-time payments
+3.18. LandingVersions
+id
+landingId
+tenantId
+jsonSnapshot
+createdAt
 
-multi-ticket
+3.19. Analytics Events
+PageViews
+id
+tenantId
+page
+source
+createdAt
 
-early bird logic
+ConversionEvents
+id
+tenantId
+eventType
+value
+createdAt
 
-receipts PDF
+==========================================
+4. AUTHENTICATION
+==========================================
+Requirements
 
-webhook to confirm success
+Supabase Auth email/password
 
-=====================================
-10. CONSENT SYSTEM (LEGAL)
-=====================================
-10.1. Consent types
+Magic links later
 
-GDPR
+CAPTCHA for tenant registration
 
-Safety waiver
+Every user assigned to tenantId
 
-10.2. Flow
+Superadmin lives in global scope
 
-If online payment:
+==========================================
+5. EVENT MANAGEMENT LOGIC
+==========================================
+Event creation flow:
 
-user checks consent boxes
+Admin creates event template or custom event
 
-receives email copy
+Set pricing (single, group 2+, early bird)
 
-stored in database
+Set max participants
 
-If on-site payment:
+Set visibility
 
-system generates unique consent URL
+Publish
 
-user signs digitally
+Rules:
 
-system logs timestamp
+totalParticipants ≤ maxParticipants
 
-=====================================
-11. ANALYTICS MODULE
-=====================================
-11.1. Revenue dashboards
+early bird price valid until earlyBirdDeadline
 
-B2C
+priceGroup applied only if ticketCount ≥ 2
 
-B2B
+Add manual participant:
 
-event-level
+If paymentType = cash → consent link must be emailed
 
-tenant-level
+If online → payment receipt auto generated
 
-platform-level (superadmin)
+==========================================
+6. B2B FLOW
+==========================================
+Lead → Deal conversion
 
-11.2. Expenses
+When converting:
 
-event expenses
+system auto-fills fields
 
-monthly global expenses
+admin adds legal data
 
-tags filter
+admin sets event date
 
-11.3. Conversion funnel
-Landing visits →
-Contact form →
-Registration →
-Payment →
-Event attendance
+admin sets amount
 
-11.4. Lead sources
+Deal statuses:
+lead
+proposal_sent
+negotiation
+invoice_sent
+paid
+completed
 
-Facebook Ads
+Invoices:
 
-Instagram Ads
+PDF generator
 
-TikTok
+Stores URL
 
-Organic
+Email sending
 
-Influencers
+Logs: sentAt, openedAt, paidAt
 
-=====================================
-12. SUPERADMIN MODULE
-=====================================
+==========================================
+7. CONTACT FORMS
+==========================================
+Form features:
 
-Functions:
+Tenant can create unlimited forms
 
-list tenants
+Each form has customizable fields
 
-view tenant analytics
+Each field:
 
-suspend/activate tenant
+type
+
+label
+
+placeholder
+
+required
+
+options
+
+orderIndex
+
+Embeddable mode:
+<iframe src="{tenantUrl}/embed/form/{formId}" />
+
+==========================================
+8. LANDING BUILDER
+==========================================
+Block types:
+
+Hero
+
+Image left / right
+
+Gallery
+
+Carousel
+
+FAQ
+
+Testimonials
+
+Benefits grid
+
+Custom HTML
+
+Footer
+
+Guides block
+
+Block rules:
+
+movable (drag)
+
+show/hide mobile
+
+show/hide desktop
+
+editable background
+
+editable fonts
+
+reorderable
+
+structured JSON content
+
+Versioning:
+
+each publish creates LandingVersion
+
+stored JSON snapshot
+
+keep last 2 versions
+
+==========================================
+9. PAYMENT LOGIC
+==========================================
+Stripe integration:
+
+pay for 1 ticket
+
+pay for group (2+)
+
+early bird applied automatically
+
+webhook: updates paymentStatus
+
+Receipts:
+
+B2C: simple receipt PDF
+
+B2B: invoice PDF
+
+==========================================
+10. ANALYTICS
+==========================================
+Includes:
+
+revenue (b2c, b2b, total)
+
+expenses (event + global)
+
+profit
+
+CAC (ads spend / registered participants)
+
+funnel:
+
+landing views
+
+form submissions
+
+registrations
+
+payments
+
+==========================================
+11. SUPERADMIN
+==========================================
+
+Superadmin can:
+
+view all tenants
+
+view tenant revenue
+
+view tenant B2B invoices
 
 impersonate tenant
 
-view B2B invoices
+suspend/activate tenant
 
-view B2C revenue
+access tenant landing builder
 
-edit landing pages
+modify global settings
 
-manage subscription/revenue-share
+==========================================
+12. AI MODULE
+==========================================
 
-=====================================
-END OF SPEC DOCUMENT
-=====================================
+AI helps tenants generate:
+
+landing page copy
+
+marketing ideas
+
+seasonal campaign ideas
+
+event descriptions
+
+email content drafts
+
+AI uses tenant onboarding inputs:
+
+event style (calm / active / extreme)
+
+target audience
+
+location type
+
+special features
+# ==========================================
+# 13. PERFORMANCE & SCALING GUIDELINES
+# ==========================================
+
+This platform must be able to handle 1000+ tenants, each with multiple landing pages and events, without excessive resource usage.
+
+## 13.1. Multi-tenant performance
+
+- All multi-tenant queries MUST be filtered by `tenantId`.
+- Add database indexes on:
+  - `tenantId`
+  - `tenantId + createdAt` (for large tables like Events, EventParticipants, Leads)
+  - `tenantId + status` where filtering by status is common (B2BDeals, Payments).
+- Avoid loading cross-tenant data in any queries.
+
+## 13.2. Landing pages (speed & hosting)
+
+- Public landing pages should be rendered using:
+  - SSG (Static Site Generation) or
+  - ISR (Incremental Static Regeneration),
+  NOT fully dynamic SSR for every request.
+- Landing pages should be cached via CDN where possible.
+- When a tenant publishes changes to a landing page:
+  - trigger revalidation/ISR for that specific page,
+  - do NOT recompute all tenants’ pages.
+
+## 13.3. Expensive operations
+
+- Sending emails, generating PDFs, and heavy analytics should be done:
+  - via background jobs / queues, or
+  - via async functions (e.g. Supabase edge functions),
+  NOT inside user-facing HTTP requests where possible.
+- Payment webhooks should:
+  - validate input,
+  - update DB,
+  - return a fast 200 response,
+  - delegate heavy follow-up work (emails, reports) to async logic.
+
+## 13.4. Data loading in admin UI
+
+- Admin dashboard pages must:
+  - use pagination or “infinite scroll” for large lists (events, participants, leads),
+  - avoid loading thousands of records into a single request.
+- Use aggregated queries for analytics (SUM, COUNT, GROUP BY), not manual loops in application code.
+
+## 13.5. File & image handling
+
+- All images (for landing pages, events, guides) must be served from Supabase Storage or CDN URLs.
+- Do NOT embed base64 images in JSON or HTML.
+- Optimize images (resize, compress) on upload where possible.
+
+## 13.6. Future scaling
+
+The architecture should allow:
+
+- horizontal scaling of the Next.js app (stateless server),
+- Postgres performance tuning via indexes and read patterns,
+- easy move from single Postgres instance to managed scalable Postgres (Supabase, RDS, etc.)
+
+Do NOT introduce design choices that require per-tenant database instances or per-tenant code deployments.
+
+# ==========================================
+# 14. SECURITY GUIDELINES
+# ==========================================
+
+Security is a core requirement of the TAKA platform.  
+All code generated must follow the security rules below.
+
+## 14.1. Multi-tenant data isolation
+
+- Every database query MUST be filtered by `tenantId` unless user is superadmin.
+- The backend must NEVER trust “tenantId” coming from the frontend — always derive it from:
+  - the authenticated user session, or
+  - a secure route parameter resolved on the server.
+
+If a route does not specify tenant context, ask for clarification before coding.
+
+## 14.2. Authentication & authorization
+
+- Use Supabase Auth for login and session management.
+- Protect all admin routes — only authenticated users with proper roles can access:
+  - events
+  - participants
+  - expenses
+  - analytics
+  - B2B deals and invoices
+  - landing builder
+- Role levels:
+  - **admin** → full access
+  - **editor** → can edit content (events, landing blocks)
+  - **viewer** → read-only, no editing of data
+
+Client-side role checks are NOT enough — always enforce access on the server.
+
+## 14.3. Input validation
+
+- ALL API endpoints must validate input using Zod schemas.
+- Backend must sanitize:
+  - strings
+  - HTML (if custom HTML block is used)
+  - email fields
+  - phone fields
+- Never trust frontend forms.
+
+## 14.4. Sensitive data handling
+
+The following data is considered sensitive:
+
+- participant names, emails, phones
+- B2B company legal data (reg number, address)
+- consent logs
+- event payments
+- invoices
+
+Rules:
+
+- Never expose sensitive fields through public API endpoints.
+- Never include sensitive fields in analytics events.
+- Never log sensitive data into server logs.
+
+## 14.5. GDPR compliance
+
+- Consent logs must include:
+  - email
+  - consent content snapshot
+  - IP
+  - userAgent
+  - signedAt
+- Consent cannot be edited after creation.
+- When a user requests deletion of their data:
+  - delete participant registers
+  - keep aggregated analytics (no personal data)
+  - keep invoices (legal requirement) but anonymize names
+
+## 14.6. Passwords & tokens
+
+- Never store plain passwords — only bcrypt hashed.
+- Store service tokens (Stripe secret, SMTP password) ONLY in environment variables.
+- Never commit secrets to GitHub.
+
+## 14.7. API security
+
+- Use only server-side Next.js App Router handlers for sensitive operations.
+- Disallow direct client writes to the database (no open Prisma access).
+- Implement rate limiting for:
+  - contact forms
+  - login endpoint
+  - B2C registration endpoint
+
+## 14.8. File uploads
+
+- Validate file type and size on upload.
+- Store files in tenant-scoped folders.
+- Do not allow uploading executable files.
+
+## 14.9. Email sending
+
+- Do not expose SMTP credentials client-side.
+- Use server-only email sending route.
+- For B2B invoices and B2C receipts:
+  - generate a secure one-time URL
+  - never expose internal paths
+
+## 14.10. Deployment & environment rules
+
+- Ensure HTTPS is required for all production traffic.
+- Disable Next.js telemetry in production if needed.
+- Set secure cookies (httpOnly, SameSite=Strict).
+- Log only non-sensitive operational data.
+
+Security checks must be applied to ALL new features.
+If something is ambiguous, the system must default to the safest option.
+
+END OF SPECIFICATION FILE
