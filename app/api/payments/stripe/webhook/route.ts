@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { getPrisma } from '@/lib/db';
@@ -28,7 +28,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  await prisma.$transaction(async (tx: PrismaClient) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const participant = await tx.eventParticipant.findFirst({
       where: { id: participantId, tenantId }
     });
