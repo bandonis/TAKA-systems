@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getPrisma } from '@/lib/db';
-import { calculateEventPrice } from '@/lib/events';
 import { withTenantRoute, BadRequestError, ConflictError, NotFoundError } from '@/lib/tenants';
-import { getStripeClient, getPublicUrl } from '@/lib/payments';
+import { createCheckoutSessionForParticipant } from '@/lib/payments';
 import { PAYMENT_STATUS } from '@/lib/prisma/enums';
 import { normalizeParam } from '@/lib/utils/params';
 
@@ -59,47 +58,14 @@ export const POST = withTenantRoute(
       select: { currency: true }
     });
 
-    const currency = (tenantSettings?.currency ?? 'EUR').toLowerCase();
+    const currency = tenantSettings?.currency ?? 'EUR';
 
-    let amount = participant.amountPaid;
-    if (!amount) {
-      const pricing = calculateEventPrice(event, participant.ticketCount);
-      amount = pricing.total;
-    }
-
-    const amountNumber = Number(amount);
-    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
-      throw new BadRequestError('Invalid registration amount');
-    }
-
-    const stripe = getStripeClient();
-    const publicUrl = getPublicUrl();
-    const successUrl = input?.successPath ? `${publicUrl}${input.successPath}` : `${publicUrl}/payments/success`;
-    const cancelUrl = input?.cancelPath ? `${publicUrl}${input.cancelPath}` : `${publicUrl}/payments/cancel`;
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      customer_email: participant.email,
-      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl,
-      metadata: {
-        tenantId: tenant.tenantId,
-        participantId: participant.id,
-        eventId: participant.eventId
-      },
-      line_items: [
-        {
-          quantity: participant.ticketCount,
-          price_data: {
-            currency,
-            product_data: {
-              name: event.title,
-              description: `Registration for ${event.title}`
-            },
-            unit_amount: Math.round((amountNumber / participant.ticketCount) * 100)
-          }
-        }
-      ]
+    const session = await createCheckoutSessionForParticipant({
+      tenantId: tenant.tenantId,
+      participant,
+      currency,
+      successPath: input?.successPath,
+      cancelPath: input?.cancelPath
     });
 
     await prisma.eventParticipant.update({

@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import type { InputJsonValue } from '@prisma/client/runtime/library';
 
@@ -19,7 +19,7 @@ export async function ensureB2CReceipt(
   { tenantId, participantId, amount, currency, paymentReference, metadata }: CreateReceiptParams,
   client: ReceiptClient = getPrisma()
 ) {
-  const normalizedMetadata = metadata === null ? Prisma.JsonNull : metadata;
+  const normalizedMetadata = metadata === null ? undefined : metadata;
 
   return client.receipt.upsert({
     where: { participantId },

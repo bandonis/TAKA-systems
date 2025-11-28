@@ -1,26 +1,27 @@
-import type { Prisma } from '@prisma/client';
-
 import { getPrisma } from '@/lib/db';
 
-type TenantSummary = Pick<Prisma.TenantGetPayload<{ select: { id: true; name: true; primaryColor: true; language: true } }>, 'id' | 'name' | 'primaryColor' | 'language'>;
+type TenantSummary = {
+  id: string;
+  name: string;
+  primaryColor: string | null;
+  language: string | null;
+};
 
-type EventSummary = Prisma.EventGetPayload<{
-  select: {
-    id: true;
-    tenantId: true;
-    title: true;
-    description: true;
-    date: true;
-    time: true;
-    location: true;
-    guideName: true;
-    priceSingle: true;
-    priceGroup: true;
-    earlyBirdPrice: true;
-    earlyBirdDeadline: true;
-    visibility: true;
-  };
-}>;
+type EventSummary = {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string | null;
+  date: Date;
+  time: string | null;
+  location: string | null;
+  guideName: string | null;
+  priceSingle: unknown;
+  priceGroup: unknown;
+  earlyBirdPrice: unknown;
+  earlyBirdDeadline: Date | null;
+  visibility: string;
+};
 
 export type PublicEvent = ReturnType<typeof serializeEventForPublic>;
 

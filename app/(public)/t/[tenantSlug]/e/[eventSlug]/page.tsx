@@ -2,9 +2,9 @@ import { notFound } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { getEventBySlug, getTenantBySlug, serializeEventForPublic } from '@/lib/events/public';
+
+import { PublicRegistrationForm } from './registration-form';
 
 export const runtime = "nodejs";
 
@@ -78,46 +78,14 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
       <Card>
         <CardHeader>
           <CardTitle>Reserve your spot</CardTitle>
-          <CardDescription>No payment required yet. We’ll email you the next steps.</CardDescription>
+          <CardDescription>Secure checkout powered by Stripe. You will be redirected after submitting.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={logPlaceholderRegistration} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name" requiredIndicator>
-                Full name
-              </Label>
-              <Input id="name" name="name" required placeholder="Kalvis Ozols" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email" requiredIndicator>
-                Email
-              </Label>
-              <Input id="email" name="email" type="email" required placeholder="kalvis@example.com" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" name="phone" type="tel" placeholder="+371 20 000 000" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="ticketCount" requiredIndicator>
-                Ticket count
-              </Label>
-              <Input id="ticketCount" name="ticketCount" type="number" min={1} defaultValue={1} required />
-            </div>
-            <input type="hidden" name="tenantId" value={event.tenantId} />
-            <input type="hidden" name="eventId" value={event.id} />
-            <Button type="submit">Notify me when registration opens</Button>
-          </form>
+          <PublicRegistrationForm tenantSlug={tenantSlug} eventSlug={eventSlug} />
         </CardContent>
       </Card>
     </div>
   );
-}
-
-async function logPlaceholderRegistration(formData: FormData) {
-  'use server';
-  const payload = Object.fromEntries(formData.entries());
-  console.log('Public registration placeholder submission', payload);
 }
 
 type PricePillProps = {
