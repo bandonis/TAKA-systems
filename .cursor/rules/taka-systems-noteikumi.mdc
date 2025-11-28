@@ -1,5 +1,6 @@
+---
 alwaysApply: true
-
+---
 # ==========================
 # GLOBAL WORKSPACE RULES
 # ==========================
@@ -11,13 +12,14 @@ All instructions in this workspace must follow these rules.
 # 1. CORE PRINCIPLES
 # ==========================
 
-- Always respect the architecture and requirements described in /docs/spec.md.
-- Before coding any module, ALWAYS read the spec and confirm understanding.
+- Always respect the architecture and requirements described in /docs/spec.md and /docs/PROJECT_OVERVIEW.md.
+- Before coding any module, ALWAYS read the relevant spec section and confirm understanding.
 - Work in small, atomic steps. DO NOT generate large patches unless explicitly asked.
 - Always show a clear diff preview before applying changes.
 - If something is unclear, ALWAYS ask clarifying questions.
 - Never invent endpoints, fields, or models not documented in the spec unless asked to.
 - Never refactor unrelated code unless explicitly instructed.
+- Never run "global cleanup" or "fix all problems in the project" unless explicitly requested.
 
 # ==========================
 # 2. TECH STACK RULES
@@ -27,7 +29,7 @@ Backend stack:
 - Next.js 15 (App Router)
 - TypeScript
 - Prisma ORM
-- tRPC or Server Actions
+- tRPC or Server Actions (if/when introduced)
 - PostgreSQL (Supabase-hosted)
 
 Frontend stack:
@@ -45,7 +47,7 @@ Infrastructure:
 # 3. VERCEL RUNTIME RULES
 # ==========================
 
-- All API routes must explicitly set Node.js runtime:
+- All API routes must explicitly set Node.js runtime when needed:
 
   # Example:
   # export const runtime = "nodejs";
@@ -64,6 +66,11 @@ Infrastructure:
   # wasm-compatible sharp if image processing is needed
 
 - Backend logic must work in Vercel Serverless (Node.js runtime).
+
+- For this Next.js App Router project:
+  - Do NOT configure custom build outputDirectory in vercel.json for pages.
+  - Rely on the standard Next.js build output (`.next` / hybrid output).
+  - Do NOT change the Vercel build command unless explicitly instructed (it must stay `"next build"`).
 
 # ==========================
 # 4. DATABASE & PRISMA RULES
@@ -85,6 +92,15 @@ Infrastructure:
 - All tenant data must be scoped with tenantId.
 - All Prisma models must match /docs/spec.md exactly.
 
+- Prisma JSON rules:
+  - Do NOT use `import type { Prisma }` if you need to access value-level members like `Prisma.JsonNull`. Use `import { Prisma } from "@prisma/client";`.
+  - For JSON columns, prefer Prisma’s input types (e.g. `Prisma.InputJsonValue`) and `Prisma.JsonNull` for nullable JSON, instead of raw `null`.
+  - When using `$transaction`, do NOT type the callback argument as `PrismaClient`. Let Prisma infer the correct transaction client type:
+    # Correct:
+    # await prisma.$transaction(async (tx) => { ... });
+    # NOT:
+    # await prisma.$transaction(async (tx: PrismaClient) => { ... });
+
 # ==========================
 # 5. ROUTING RULES (Next.js App Router)
 # ==========================
@@ -98,22 +114,27 @@ Infrastructure:
 - Tenant routes require strict authorization checks.
 - Public routes must NOT import server-only code.
 
+- Next.js 15 specifics:
+  - `headers()` and `cookies()` are async in App Router. Always `await` them in server components and route handlers.
+  - Dynamic route params may be `string | string[]`. Always normalize:
+    # const id = Array.isArray(params.id) ? params.id[0] : params.id;
+
 # ==========================
 # 6. SECURITY RULES
 # ==========================
 
-- Authentication uses secure cookies.
+- Authentication uses secure cookies (or the auth mechanism defined in the current implementation).
 - Server must always validate user/tenant context.
 - Never trust client-sent headers without server verification.
 - API responses must use consistent error structure.
-- Never leak sensitive data to client.
+- Never leak sensitive data (participants, payments, consents, B2B legal data) to client or logs.
 
 # ==========================
 # 7. UI RULES
 # ==========================
 
 - Use server components by default.
-- Add `"use client"` only when required.
+- Add "use client" only when required.
 - Follow shadcn/ui conventions strictly.
 - All pages must be fully responsive (mobile-first).
 
@@ -122,11 +143,18 @@ Infrastructure:
 # ==========================
 
 - All code must compile on Vercel without modification.
+- The default build script is:
+
+  # "build": "next build"
+
+  Do NOT change this script unless explicitly asked.
+
 - When a Vercel build error appears, the agent must:
   - Identify the failing file(s),
-  - Generate the smallest required fix,
-  - Ensure changes remain aligned with /docs/spec.md,
-  - Request approval before applying large structural changes.
+  - Generate the smallest required fix in those specific files only,
+  - Keep changes aligned with /docs/spec.md and the existing architecture,
+  - NOT refactor unrelated code,
+  - Request approval before applying large structural changes or touching multiple modules.
 
 # ==========================
 # 9. WORKFLOW RULES
@@ -141,3 +169,24 @@ Infrastructure:
   - Modifying authentication logic,
   - Changing multi-tenant architecture,
   - Adding new database models.
+
+- The agent must NEVER:
+  - Run global “fix all problems” operations,
+  - Rewrite multiple unrelated files in one step,
+  - Change version control settings or Git history.
+
+# ==========================
+# 10. ERROR PATTERN RULES (FROM HISTORY)
+# ==========================
+
+To avoid repeating past issues, the agent must:
+
+- For Vercel:
+  - Not introduce or rely on a `public` build output directory.
+  - Assume this is a standard Next.js 15 App Router deployment.
+- For Prisma JSON:
+  - Avoid raw `null` in JSON fields when Prisma expects `NullableJsonNullValueInput`.
+  - Prefer `Prisma.JsonNull` or omit the field when metadata is undefined.
+- For typing:
+  - Prefer inferred types in Prisma queries and `$transaction` callbacks instead of manual `PrismaClient` annotations.
+  - Avoid converting type-only imports into value usage.
