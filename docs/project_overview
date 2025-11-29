@@ -1,0 +1,172 @@
+# TAKA Systems – Projekta Pārskats (PROJECT_OVERVIEW)
+
+Šis dokuments īsi apkopo TAKA multi-tenant platformas mērķi, arhitektūru un izstrādes principus.
+Detalizētā tehniskā specifikācija ir `docs/spec.md`.
+
+---
+
+## 1. Projekta mērķis – kas ir TAKA Systems
+
+TAKA ir multi-tenant SaaS platforma aktīvās atpūtas un piedzīvojumu organizatoriem.
+
+KATRAM KLIENTAM (tenant):
+
+- sava publiskā mājaslapa / landing builder
+- savs administrācijas panelis (dashboard)
+- savs notikumu (events) katalogs
+- savu dalībnieku pārvaldība (participants)
+- savs norēķinu ceļš (Stripe)
+- savs domēns vai subdomēns
+- B2C & B2B reģistrācijas
+- ienākumu/izdevumu analītika
+- AI palīgs mārketingam
+- klientu CRM, kontakti, formas
+- GDPR & drošības piekrišanas sistēma
+
+SUPERADMIN:
+
+- pārvalda visus tenantus
+- redz platformas kopējos ieņēmumus
+- var apturēt/aktivizēt tenantus
+- var pieslēgties tenantu panelim (impersonation)
+- pārvalda globālos iestatījumus
+
+---
+
+## 2. MVP fokuss
+
+MVP mērķis – pēc iespējas ātrāk palaist:
+
+1. **Tenant reģistrāciju un autentifikāciju**
+   - tenants var izveidot kontu
+   - tenants var ielogoties dashboard
+
+2. **Event / Participants pamatplūsmu**
+   - izveidot pasākumu
+   - publicēt pasākumu
+   - reģistrēt dalībniekus
+   - apstrādāt apmaksu ar Stripe
+
+3. **Publisko event lapu**
+   - publisks URL
+   - reģistrācijas forma
+   - maksājumu ceļš
+   - apstiprinājuma e-pasts (vēlāk)
+
+4. **Pamata multi-tenant drošību**
+   - visi dati piesaistīti tenantId
+   - superadmin atsevišķi
+
+Vēlāk – B2B, pilns landing builder, AI modulis, analītika u.c.
+
+---
+
+## 3. Tehnoloģiju stack
+
+Backend:
+
+- Next.js 15 (App Router)
+- TypeScript
+- Prisma ORM
+- PostgreSQL (Supabase)
+- REST API (vēlāk tRPC / server actions)
+- Zod validācija
+
+Frontend:
+
+- React (App Router + server components)
+- Tailwind CSS
+- shadcn/ui
+- Mobile-first dizains
+
+Infra:
+
+- Vercel (deploy + previews)
+- Supabase PostgreSQL
+- Stripe (maksājumi)
+- Supabase Storage (faili un bildes)
+
+---
+
+## 4. Mape struktūra (high-level)
+
+```txt
+app/
+  (public)/
+    page.tsx           – publiskā lapa / sākums
+  (tenant)/
+    dashboard/
+    events/
+    settings/
+  (superadmin)/
+    page.tsx           – superadmin skats (MVP – skelets)
+
+app/api/
+  auth/...
+  events/...
+  payments/...
+  tenants/...
+
+lib/
+  auth/
+  db/
+  tenants/
+  payments/
+  events/
+
+prisma/
+  schema.prisma
+
+docs/
+  PROJECT_OVERVIEW.md
+  spec.md
+  IMPLEMENTATION_STATUS.md
+
+.cursor/
+  rules/
+    taka-systems-noteikumi.mdc
+6. Roadmap (īss)
+
+MVP 1 – pamata platforma
+
+Tenants, Users, Events, Participants
+
+Stripe B2C maksājumi + webhook
+
+Tenant dashboard pamata skati
+
+MVP 2 – publiskā event pieredze
+
+event lapa: /t/[tenant]/e/[event]
+
+reģistrācijas plūsma
+
+apmaksas un apstiprinājuma loģika
+
+MVP 3 – Expenses & Analytics (vienkāršā versija)
+
+GlobalExpenses, EventExpenses CRUD
+
+vienkārši pārskati dashboard
+
+MVP 4 – B2B & invoices
+
+B2BLeads, B2BDeals, B2BInvoices
+
+PDF rēķinu ģenerēšana un sūtīšana
+
+MVP 5 – Landing Builder + AI
+
+LandingPages + LandingBlocks renderēšana
+
+AI teksta ģenerēšana blokiem
+
+Detalizētas biznesa un tabulu prasības – docs/spec.md.
+
+7. Kam šis fails domāts
+
+Cilvēkiem (tevi, nākotnes devus, partnerus) – lai ātri saprot projektu.
+
+AI (Cursor / ChatGPT) – kā īss “orientieris”, pirms ķerties pie spec.md.
+
+Ja rodas šaubas par konkrētu detaļu – specifikācija spec.md ir galvenais patiesības avots.

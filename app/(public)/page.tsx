@@ -15,10 +15,10 @@ export default function PublicHomePage() {
       </div>
       <div className="flex flex-wrap gap-4">
         <Button asChild>
-          <Link href="/dashboard">Go to dashboard</Link>
+          <Link href="/auth/register-tenant">Create your tenant</Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link href="/landing-builder">Open landing builder</Link>
+          <Link href="/auth/login">Already have an account? Log in</Link>
         </Button>
       </div>
     </section>
