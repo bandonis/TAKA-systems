@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, CalendarPlus, Users } from 'lucide-react';
+import { ArrowRight, CalendarPlus, DollarSign, Users, Wallet } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,32 +16,35 @@ type EventsResponse = {
   events: (DashboardEvent & { date: string })[];
 };
 
-type ParticipantsResponse = {
-  participants: { id: string }[];
+type DashboardSummary = {
+  currency: string;
+  totalParticipantsLast30d: number;
+  revenueAllTime: string;
+  revenueAllTimeCents: number;
+  upcomingEventsCount: number;
+  pendingPaymentsCount: number;
 };
 
 async function getDashboardData() {
-  const { events } = await fetchTenantApi<EventsResponse>('/api/events');
-  const upcomingCount = events.filter((event) => new Date(event.date) >= new Date()).length;
+  const eventsPromise = fetchTenantApi<EventsResponse>('/api/events');
 
-  const participantCounts = await Promise.all(
-    events.map(async (event) => {
-      const data = await fetchTenantApi<ParticipantsResponse>(`/api/events/${event.id}/participants`);
-      return data.participants.length;
-    })
-  );
+  let summary: DashboardSummary | null = null;
+  try {
+    summary = await fetchTenantApi<DashboardSummary>('/api/dashboard/summary');
+  } catch {
+    summary = null;
+  }
 
-  const totalParticipants = participantCounts.reduce((sum, count) => sum + count, 0);
+  const { events } = await eventsPromise;
 
   return {
     events,
-    upcomingCount,
-    totalParticipants
+    summary
   };
 }
 
 export default async function AdminDashboardPage() {
-  const { events, upcomingCount, totalParticipants } = await getDashboardData();
+  const { events, summary } = await getDashboardData();
 
   return (
     <section className="space-y-8 pb-20 lg:pb-0">
@@ -53,48 +56,28 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming events</CardTitle>
-            <CalendarPlus className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tracking-tight">{upcomingCount}</p>
-            <CardDescription>Scheduled from today onward</CardDescription>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Participants</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tracking-tight">{totalParticipants}</p>
-            <CardDescription>Total confirmed registrations</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Quick actions</CardTitle>
-            <CardDescription className="text-primary-foreground/80">Build momentum right away</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 pt-2">
-            <Button asChild variant="secondary" className="w-full bg-white/20 hover:bg-white/30 text-primary-foreground">
-              <Link href="/events/new">
-                <CalendarPlus className="mr-2 h-4 w-4" />
-                Create event
-              </Link>
-            </Button>
-            <Button asChild variant="secondary" className="w-full bg-white/20 hover:bg-white/30 text-primary-foreground">
-              <Link href="/events">
-                <ArrowRight className="mr-2 h-4 w-4" />
-                View events
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <SummaryCards summary={summary} />
+
+      <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Quick actions</CardTitle>
+          <CardDescription className="text-primary-foreground/80">Build momentum right away</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 pt-2">
+          <Button asChild variant="secondary" className="w-full bg-white/20 hover:bg-white/30 text-primary-foreground">
+            <Link href="/events/new">
+              <CalendarPlus className="mr-2 h-4 w-4" />
+              Create event
+            </Link>
+          </Button>
+          <Button asChild variant="secondary" className="w-full bg-white/20 hover:bg-white/30 text-primary-foreground">
+            <Link href="/events">
+              <ArrowRight className="mr-2 h-4 w-4" />
+              View events
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -127,4 +110,66 @@ export default async function AdminDashboardPage() {
   );
 }
 
+function SummaryCards({ summary }: { summary: DashboardSummary | null }) {
+  if (!summary) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Summary unavailable</CardTitle>
+            <CardDescription>Unable to load summary right now. Please refresh.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
+  const formatter = new Intl.NumberFormat('en', {
+    style: 'currency',
+    currency: summary.currency || 'EUR'
+  });
+
+  const cards = [
+    {
+      title: 'Total participants (30d)',
+      value: summary.totalParticipantsLast30d.toLocaleString(),
+      description: 'Registrations in the last 30 days',
+      icon: <Users className="h-4 w-4 text-primary" />
+    },
+    {
+      title: 'Revenue (all time)',
+      value: formatter.format(summary.revenueAllTimeCents / 100),
+      description: 'Completed payments',
+      icon: <DollarSign className="h-4 w-4 text-primary" />
+    },
+    {
+      title: 'Upcoming events',
+      value: summary.upcomingEventsCount.toString(),
+      description: 'Scheduled from today onward',
+      icon: <CalendarPlus className="h-4 w-4 text-primary" />
+    },
+    {
+      title: 'Pending payments',
+      value: summary.pendingPaymentsCount.toString(),
+      description: 'Awaiting completion',
+      icon: <Wallet className="h-4 w-4 text-primary" />
+    }
+  ];
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {cards.map((card) => (
+        <Card key={card.title}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
+            {card.icon}
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold tracking-tight">{card.value}</p>
+            <CardDescription>{card.description}</CardDescription>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}

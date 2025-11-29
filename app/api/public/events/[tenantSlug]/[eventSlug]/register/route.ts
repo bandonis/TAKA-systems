@@ -13,9 +13,7 @@ const registerSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   phone: z.string().optional(),
-  ticketCount: z.number().int().min(1),
-  successPath: z.string().optional(),
-  cancelPath: z.string().optional()
+  ticketCount: z.number().int().min(1)
 });
 
 type RouteParams = {
@@ -94,12 +92,15 @@ export async function POST(req: Request, context: { params: Promise<RouteParams>
       select: { currency: true }
     });
 
+    const successPath = `/t/${params.tenantSlug}/e/${params.eventSlug}/checkout/success`;
+    const cancelPath = `/t/${params.tenantSlug}/e/${params.eventSlug}/checkout/cancel`;
+
     const session = await createCheckoutSessionForParticipant({
       tenantId: tenant.id,
       participant,
       currency: tenantSettings?.currency ?? 'EUR',
-      successPath: input.successPath,
-      cancelPath: input.cancelPath
+      successPath,
+      cancelPath
     });
 
     await prisma.eventParticipant.update({

@@ -21,11 +21,16 @@ export function PublicRegistrationForm({ tenantSlug, eventSlug }: RegistrationFo
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
+    const successPath = `/t/${tenantSlug}/e/${eventSlug}/checkout/success`;
+    const cancelPath = `/t/${tenantSlug}/e/${eventSlug}/checkout/cancel`;
+
     const payload = {
       name: (formData.get('name') as string | null)?.trim() ?? '',
       email: (formData.get('email') as string | null)?.trim() ?? '',
       phone: (formData.get('phone') as string | null)?.trim() || null,
-      ticketCount: Number(formData.get('ticketCount') ?? 1)
+      ticketCount: Number(formData.get('ticketCount') ?? 1),
+      successPath,
+      cancelPath
     };
 
     if (!payload.name || !payload.email || Number.isNaN(payload.ticketCount) || payload.ticketCount < 1) {

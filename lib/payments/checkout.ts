@@ -52,14 +52,15 @@ export async function createCheckoutSessionForParticipant({
 
   const stripe = getStripeClient();
   const publicUrl = getPublicUrl();
-  const resolvedSuccess = successPath ? `${publicUrl}${successPath}` : `${publicUrl}/payments/success`;
-  const resolvedCancel = cancelPath ? `${publicUrl}${cancelPath}` : `${publicUrl}/payments/cancel`;
+  const baseSuccessUrl = successPath ? `${publicUrl}${successPath}` : `${publicUrl}/payments/success`;
+  const successUrl = `${baseSuccessUrl}${baseSuccessUrl.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = cancelPath ? `${publicUrl}${cancelPath}` : `${publicUrl}/payments/cancel`;
 
   return stripe.checkout.sessions.create({
     mode: 'payment',
     customer_email: participant.email,
-    success_url: `${resolvedSuccess}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: resolvedCancel,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     metadata: {
       tenantId,
       participantId: participant.id,
