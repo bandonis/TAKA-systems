@@ -71,3 +71,4 @@ function formatEventDate(date: Date, time: string | null) {
   return `${formattedDate} • ${time}`;
 }
 
+
