@@ -21,8 +21,12 @@ type ParticipantsResponse = {
     id: string;
     name: string;
     email: string;
+    phone: string | null;
     ticketCount: number;
     paymentStatus: PaymentStatus;
+    createdAt: string;
+    amountPaid: string | null;
+    eventId: string | null;
   }[];
 };
 
@@ -54,6 +58,11 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
     const data = await fetchTenantApi<ParticipantsResponse>(`/api/events/${selectedEvent.id}/participants`);
     participants = data.participants;
   }
+
+  const currencyFormatter = new Intl.NumberFormat('en', {
+    style: 'currency',
+    currency: 'EUR'
+  });
 
   return (
     <section className="space-y-6 pb-20 lg:pb-0">
@@ -89,19 +98,59 @@ export default async function ParticipantsPage({ searchParams }: ParticipantsPag
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {participants.map((participant) => (
-              <div key={participant.id} className="flex flex-col gap-2 rounded-lg border border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-base font-semibold">{participant.name}</p>
-                  <p className="text-sm text-muted-foreground">{participant.email}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant={participant.paymentStatus === 'PAID' ? 'success' : 'warning'}>{participant.paymentStatus.toLowerCase()}</Badge>
-                  <span className="text-sm text-muted-foreground">{participant.ticketCount} ticket(s)</span>
-                </div>
+            {participants.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase text-muted-foreground">
+                      <th className="pb-2 font-medium">Participant</th>
+                      <th className="pb-2 font-medium">Email</th>
+                      <th className="pb-2 font-medium">Phone</th>
+                      <th className="pb-2 font-medium">Ticket count</th>
+                      <th className="pb-2 font-medium">Payment status</th>
+                      <th className="pb-2 font-medium">Registration date</th>
+                      <th className="pb-2 font-medium">Amount paid</th>
+                      <th className="pb-2 font-medium">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {participants.map((participant) => {
+                      const participantType = participant.eventId ? 'B2C' : 'B2B lead';
+                      const amountValue = participant.amountPaid ? Number(participant.amountPaid) : null;
+                      return (
+                        <tr key={participant.id} className="align-top">
+                          <td className="py-3">
+                            <p className="font-medium text-foreground">{participant.name}</p>
+                            <p className="text-xs text-muted-foreground">#{participant.id.slice(-6)}</p>
+                          </td>
+                          <td className="py-3">{participant.email}</td>
+                          <td className="py-3">{participant.phone ?? '—'}</td>
+                          <td className="py-3">{participant.ticketCount}</td>
+                          <td className="py-3">
+                            <Badge variant={participant.paymentStatus === 'PAID' ? 'success' : 'warning'}>
+                              {participant.paymentStatus.toLowerCase()}
+                            </Badge>
+                          </td>
+                          <td className="py-3">
+                            {new Date(participant.createdAt).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </td>
+                          <td className="py-3">
+                            {amountValue !== null ? currencyFormatter.format(amountValue) : '—'}
+                          </td>
+                          <td className="py-3">
+                            <Badge variant="secondary">{participantType}</Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ))}
-            {participants.length === 0 && (
+            ) : (
               <p className="text-sm text-muted-foreground">No participants yet. Share the registration link to get started.</p>
             )}
           </CardContent>

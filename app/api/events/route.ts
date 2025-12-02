@@ -38,15 +38,36 @@ export const GET = withTenantRoute(
       ? (visibilityParam as EventVisibility)
       : null;
 
-    const events = await prisma.event.findMany({
-      where: {
-        tenantId: tenant.tenantId,
-        ...(visibility ? { visibility } : {})
-      },
-      orderBy: { date: 'asc' }
-    });
+    const [events, participantAggregates] = await Promise.all([
+      prisma.event.findMany({
+        where: {
+          tenantId: tenant.tenantId,
+          ...(visibility ? { visibility } : {})
+        },
+        orderBy: { date: 'asc' }
+      }),
+      prisma.eventParticipant.groupBy({
+        by: ['eventId'],
+        where: {
+          tenantId: tenant.tenantId
+        },
+        _sum: {
+          ticketCount: true
+        }
+      })
+    ]);
 
-    return NextResponse.json({ events });
+    const ticketsByEvent = participantAggregates.reduce<Record<string, number>>((acc, aggregate) => {
+      acc[aggregate.eventId] = aggregate._sum.ticketCount ?? 0;
+      return acc;
+    }, {});
+
+    return NextResponse.json({
+      events: events.map((event) => ({
+        ...event,
+        ticketsSold: ticketsByEvent[event.id] ?? 0
+      }))
+    });
   },
   { onError: 'Unable to load events' }
 );

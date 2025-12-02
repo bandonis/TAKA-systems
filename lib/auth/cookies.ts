@@ -11,17 +11,21 @@ export async function getSession() {
   return verifySessionToken(token);
 }
 
+function getSecureFlag() {
+  return process.env.NODE_ENV === 'production' ? ' Secure;' : '';
+}
+
 export function attachSessionCookie(response: Response, token: string) {
   response.headers.append(
     'Set-Cookie',
-    `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${SESSION_DURATION}; HttpOnly; Secure; SameSite=Lax`
+    `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${SESSION_DURATION}; HttpOnly;${getSecureFlag()} SameSite=Lax`
   );
 }
 
 export function clearSessionCookie(response: Response) {
   response.headers.append(
     'Set-Cookie',
-    `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`
+    `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly;${getSecureFlag()} SameSite=Lax`
   );
 }
 

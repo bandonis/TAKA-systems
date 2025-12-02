@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { ArrowRight, CalendarPlus, Users } from 'lucide-react';
+import { ArrowRight, CalendarPlus, DollarSign, Users, Wallet } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { fetchTenantApi } from '@/lib/tenant/api';
 
 type DashboardEvent = {
@@ -10,38 +11,53 @@ type DashboardEvent = {
   title: string;
   date: string;
   visibility: 'DRAFT' | 'PUBLISHED';
+  maxParticipants: number | null;
+  ticketsSold: number;
 };
 
 type EventsResponse = {
-  events: (DashboardEvent & { date: string })[];
+  events: DashboardEvent[];
 };
 
-type ParticipantsResponse = {
-  participants: { id: string }[];
+type LatestParticipant = {
+  id: string;
+  name: string;
+  email: string;
+  eventName: string;
+  ticketCount: number;
+  paymentStatus: 'PENDING' | 'PAID';
+  createdAt: string;
+};
+
+type DashboardSummary = {
+  currency: string;
+  totalParticipantsLast30d: number;
+  revenueThisMonthCents: number;
+  upcomingEventsCount: number;
+  pendingPaymentsCount: number;
+  latestParticipants: LatestParticipant[];
 };
 
 async function getDashboardData() {
-  const { events } = await fetchTenantApi<EventsResponse>('/api/events');
-  const upcomingCount = events.filter((event) => new Date(event.date) >= new Date()).length;
+  const eventsPromise = fetchTenantApi<EventsResponse>('/api/events');
 
-  const participantCounts = await Promise.all(
-    events.map(async (event) => {
-      const data = await fetchTenantApi<ParticipantsResponse>(`/api/events/${event.id}/participants`);
-      return data.participants.length;
-    })
-  );
+  let summary: DashboardSummary | null = null;
+  try {
+    summary = await fetchTenantApi<DashboardSummary>('/api/dashboard/summary');
+  } catch {
+    summary = null;
+  }
 
-  const totalParticipants = participantCounts.reduce((sum, count) => sum + count, 0);
+  const { events } = await eventsPromise;
 
   return {
     events,
-    upcomingCount,
-    totalParticipants
+    summary
   };
 }
 
 export default async function AdminDashboardPage() {
-  const { events, upcomingCount, totalParticipants } = await getDashboardData();
+  const { events, summary } = await getDashboardData();
 
   return (
     <section className="space-y-8 pb-20 lg:pb-0">
@@ -53,48 +69,30 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming events</CardTitle>
-            <CalendarPlus className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tracking-tight">{upcomingCount}</p>
-            <CardDescription>Scheduled from today onward</CardDescription>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Participants</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tracking-tight">{totalParticipants}</p>
-            <CardDescription>Total confirmed registrations</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Quick actions</CardTitle>
-            <CardDescription className="text-primary-foreground/80">Build momentum right away</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 pt-2">
-            <Button asChild variant="secondary" className="w-full bg-white/20 hover:bg-white/30 text-primary-foreground">
-              <Link href="/events/new">
-                <CalendarPlus className="mr-2 h-4 w-4" />
-                Create event
-              </Link>
-            </Button>
-            <Button asChild variant="secondary" className="w-full bg-white/20 hover:bg-white/30 text-primary-foreground">
-              <Link href="/events">
-                <ArrowRight className="mr-2 h-4 w-4" />
-                View events
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <SummaryCards summary={summary} />
+
+      <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Quick actions</CardTitle>
+          <CardDescription className="text-primary-foreground/80">Build momentum right away</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 pt-2">
+          <Button asChild variant="secondary" className="w-full bg-white/20 hover:bg-white/30 text-primary-foreground">
+            <Link href="/events/new">
+              <CalendarPlus className="mr-2 h-4 w-4" />
+              Create event
+            </Link>
+          </Button>
+          <Button asChild variant="secondary" className="w-full bg-white/20 hover:bg-white/30 text-primary-foreground">
+            <Link href="/events">
+              <ArrowRight className="mr-2 h-4 w-4" />
+              View events
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <LatestParticipantsSection participants={summary?.latestParticipants ?? []} />
 
       <Card>
         <CardHeader>
@@ -108,6 +106,12 @@ export default async function AdminDashboardPage() {
                 <p className="text-base font-semibold">{event.title}</p>
                 <p className="text-sm text-muted-foreground">
                   {new Date(event.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Remaining slots:{' '}
+                  {typeof event.maxParticipants === 'number'
+                    ? Math.max(event.maxParticipants - (event.ticketsSold ?? 0), 0)
+                    : 'Unlimited'}
                 </p>
               </div>
               <div className="flex flex-1 items-center justify-end gap-2">
@@ -127,4 +131,114 @@ export default async function AdminDashboardPage() {
   );
 }
 
+function SummaryCards({ summary }: { summary: DashboardSummary | null }) {
+  if (!summary) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Summary unavailable</CardTitle>
+            <CardDescription>Unable to load summary right now. Please refresh.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
+  const formatter = new Intl.NumberFormat('en', {
+    style: 'currency',
+    currency: summary.currency || 'EUR'
+  });
+
+  const cards = [
+    {
+      title: 'Total participants (30d)',
+      value: summary.totalParticipantsLast30d.toLocaleString(),
+      description: 'Registrations in the last 30 days',
+      icon: <Users className="h-4 w-4 text-primary" />
+    },
+    {
+      title: 'Revenue (this month)',
+      value: formatter.format(summary.revenueThisMonthCents / 100),
+      description: 'Paid B2C receipts',
+      icon: <DollarSign className="h-4 w-4 text-primary" />
+    },
+    {
+      title: 'Upcoming events',
+      value: summary.upcomingEventsCount.toString(),
+      description: 'Scheduled from today onward',
+      icon: <CalendarPlus className="h-4 w-4 text-primary" />
+    },
+    {
+      title: 'Pending payments',
+      value: summary.pendingPaymentsCount.toString(),
+      description: 'Awaiting completion',
+      icon: <Wallet className="h-4 w-4 text-primary" />
+    }
+  ];
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {cards.map((card) => (
+        <Card key={card.title}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
+            {card.icon}
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold tracking-tight">{card.value}</p>
+            <CardDescription>{card.description}</CardDescription>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function LatestParticipantsSection({ participants }: { participants: LatestParticipant[] }) {
+  if (!participants.length) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle>Latest participants</CardTitle>
+          <CardDescription>Most recent registrations from all events</CardDescription>
+        </div>
+        <Button asChild variant="ghost" size="sm" className="px-0 text-primary hover:text-primary">
+          <Link href="/participants" className="flex items-center gap-1">
+            View all <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {participants.map((participant) => (
+          <div
+            key={participant.id}
+            className="flex flex-col gap-2 rounded-lg border border-border px-4 py-3 md:flex-row md:items-center md:justify-between"
+          >
+            <div>
+              <p className="text-base font-semibold">{participant.name}</p>
+              <p className="text-sm text-muted-foreground">{participant.email}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{participant.eventName}</span>
+              <span>{participant.ticketCount} ticket(s)</span>
+              <Badge variant={participant.paymentStatus === 'PAID' ? 'success' : 'warning'} className="text-xs uppercase">
+                {participant.paymentStatus.toLowerCase()}
+              </Badge>
+              <span>
+                {new Date(participant.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </span>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
