@@ -3,6 +3,7 @@ import { ArrowRight, CalendarPlus, DollarSign, Users, Wallet } from 'lucide-reac
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { fetchTenantApi } from '@/lib/tenant/api';
 
 type DashboardEvent = {
@@ -10,19 +11,31 @@ type DashboardEvent = {
   title: string;
   date: string;
   visibility: 'DRAFT' | 'PUBLISHED';
+  maxParticipants: number | null;
+  ticketsSold: number;
 };
 
 type EventsResponse = {
-  events: (DashboardEvent & { date: string })[];
+  events: DashboardEvent[];
+};
+
+type LatestParticipant = {
+  id: string;
+  name: string;
+  email: string;
+  eventName: string;
+  ticketCount: number;
+  paymentStatus: 'PENDING' | 'PAID';
+  createdAt: string;
 };
 
 type DashboardSummary = {
   currency: string;
   totalParticipantsLast30d: number;
-  revenueAllTime: string;
-  revenueAllTimeCents: number;
+  revenueThisMonthCents: number;
   upcomingEventsCount: number;
   pendingPaymentsCount: number;
+  latestParticipants: LatestParticipant[];
 };
 
 async function getDashboardData() {
@@ -79,6 +92,8 @@ export default async function AdminDashboardPage() {
         </CardContent>
       </Card>
 
+      <LatestParticipantsSection participants={summary?.latestParticipants ?? []} />
+
       <Card>
         <CardHeader>
           <CardTitle>Coming up next</CardTitle>
@@ -91,6 +106,12 @@ export default async function AdminDashboardPage() {
                 <p className="text-base font-semibold">{event.title}</p>
                 <p className="text-sm text-muted-foreground">
                   {new Date(event.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Remaining slots:{' '}
+                  {typeof event.maxParticipants === 'number'
+                    ? Math.max(event.maxParticipants - (event.ticketsSold ?? 0), 0)
+                    : 'Unlimited'}
                 </p>
               </div>
               <div className="flex flex-1 items-center justify-end gap-2">
@@ -137,9 +158,9 @@ function SummaryCards({ summary }: { summary: DashboardSummary | null }) {
       icon: <Users className="h-4 w-4 text-primary" />
     },
     {
-      title: 'Revenue (all time)',
-      value: formatter.format(summary.revenueAllTimeCents / 100),
-      description: 'Completed payments',
+      title: 'Revenue (this month)',
+      value: formatter.format(summary.revenueThisMonthCents / 100),
+      description: 'Paid B2C receipts',
       icon: <DollarSign className="h-4 w-4 text-primary" />
     },
     {
@@ -171,5 +192,53 @@ function SummaryCards({ summary }: { summary: DashboardSummary | null }) {
         </Card>
       ))}
     </div>
+  );
+}
+
+function LatestParticipantsSection({ participants }: { participants: LatestParticipant[] }) {
+  if (!participants.length) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle>Latest participants</CardTitle>
+          <CardDescription>Most recent registrations from all events</CardDescription>
+        </div>
+        <Button asChild variant="ghost" size="sm" className="px-0 text-primary hover:text-primary">
+          <Link href="/participants" className="flex items-center gap-1">
+            View all <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {participants.map((participant) => (
+          <div
+            key={participant.id}
+            className="flex flex-col gap-2 rounded-lg border border-border px-4 py-3 md:flex-row md:items-center md:justify-between"
+          >
+            <div>
+              <p className="text-base font-semibold">{participant.name}</p>
+              <p className="text-sm text-muted-foreground">{participant.email}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{participant.eventName}</span>
+              <span>{participant.ticketCount} ticket(s)</span>
+              <Badge variant={participant.paymentStatus === 'PAID' ? 'success' : 'warning'} className="text-xs uppercase">
+                {participant.paymentStatus.toLowerCase()}
+              </Badge>
+              <span>
+                {new Date(participant.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </span>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

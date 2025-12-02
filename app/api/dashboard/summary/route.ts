@@ -13,9 +13,17 @@ export const GET = withTenantRoute(
     const now = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(now.getDate() - 30);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    const [totalParticipantsLast30d, revenueAggregate, upcomingEventsCount, pendingPaymentsCount, tenantSettings] =
-      await Promise.all([
+    const [
+      totalParticipantsLast30d,
+      monthlyRevenueAggregate,
+      upcomingEventsCount,
+      pendingPaymentsCount,
+      tenantSettings,
+      latestParticipants
+    ] = await Promise.all([
         prisma.eventParticipant.count({
           where: {
             tenantId: tenant.tenantId,
@@ -24,7 +32,15 @@ export const GET = withTenantRoute(
         }),
         prisma.receipt.aggregate({
           where: {
-            tenantId: tenant.tenantId
+            tenantId: tenant.tenantId,
+            type: 'B2C',
+            issuedAt: {
+              gte: startOfMonth,
+              lt: startOfNextMonth
+            },
+            participant: {
+              paymentStatus: 'PAID'
+            }
           },
           _sum: {
             amount: true
@@ -45,20 +61,44 @@ export const GET = withTenantRoute(
         prisma.tenantSettings.findUnique({
           where: { tenantId: tenant.tenantId },
           select: { currency: true }
+        }),
+        prisma.eventParticipant.findMany({
+          where: { tenantId: tenant.tenantId },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            ticketCount: true,
+            paymentStatus: true,
+            createdAt: true,
+            event: {
+              select: { title: true }
+            }
+          }
         })
       ]);
 
-    const revenueDecimal = revenueAggregate._sum.amount ?? new Prisma.Decimal(0);
-    const revenueNumber = Number(revenueDecimal);
-    const revenueAllTimeCents = Math.round(revenueNumber * 100);
+    const revenueDecimal = monthlyRevenueAggregate._sum.amount ?? new Prisma.Decimal(0);
+    const revenueThisMonthCents = Math.round(Number(revenueDecimal) * 100);
+    const currency = (tenantSettings?.currency ?? 'EUR').toUpperCase();
 
     return NextResponse.json({
-      currency: (tenantSettings?.currency ?? 'EUR').toUpperCase(),
+      currency,
       totalParticipantsLast30d,
-      revenueAllTime: revenueDecimal.toString(),
-      revenueAllTimeCents,
+      revenueThisMonthCents,
       upcomingEventsCount,
-      pendingPaymentsCount
+      pendingPaymentsCount,
+      latestParticipants: latestParticipants.map((participant) => ({
+        id: participant.id,
+        name: participant.name,
+        email: participant.email,
+        eventName: participant.event?.title ?? 'Untitled event',
+        ticketCount: participant.ticketCount,
+        paymentStatus: participant.paymentStatus,
+        createdAt: participant.createdAt
+      }))
     });
   },
   { onError: 'Unable to load dashboard summary' }

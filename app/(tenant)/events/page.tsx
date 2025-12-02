@@ -6,9 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { EventVisibility } from '@/lib/prisma/enums';
+import { getPublicEventUrl } from '@/lib/events/urls';
+
+import { PublicLinkButton } from './_components/public-link-button';
 
 type EventSummary = {
   id: string;
+  tenantId: string;
   title: string;
   date: string;
   visibility: EventVisibility;
@@ -45,6 +49,7 @@ export default async function EventsPage() {
       <div className="grid gap-4">
         {events.map((event) => {
           const visibility = visibilityMap[event.visibility] ?? visibilityMap.DRAFT;
+          const publicEventUrl = getPublicEventUrl({ tenantSlug: event.tenantId, eventSlug: event.id });
 
           return (
             <Card key={event.id} className="border border-border">
@@ -67,7 +72,7 @@ export default async function EventsPage() {
                 <p className="text-sm text-muted-foreground">
                   Edit pricing, manage participants, and publish when you’re ready.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button variant="outline" asChild size="sm">
                     <Link href={`/events/${event.id}/edit`}>
                       <Edit className="mr-1.5 h-4 w-4" />
@@ -80,6 +85,7 @@ export default async function EventsPage() {
                       View participants
                     </Link>
                   </Button>
+                  <PublicLinkButton url={publicEventUrl} />
                 </div>
               </CardContent>
             </Card>
