@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, Gauge, Settings2, Users } from 'lucide-react';
+import { CalendarDays, Gauge, LayoutTemplate, Settings2, Users } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Gauge },
   { href: '/events', label: 'Events', icon: CalendarDays },
+  { href: '/landings', label: 'Landing pages', icon: LayoutTemplate },
   { href: '/participants', label: 'Participants', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings2 }
 ];
@@ -43,6 +44,7 @@ export function TenantNavLinks({ orientation = 'vertical' }: NavListProps) {
     </nav>
   );
 }
+
 
 
 

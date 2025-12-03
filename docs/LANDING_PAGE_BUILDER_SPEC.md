@@ -476,3 +476,104 @@ Katras lapas SSR/ISR notiek neatkarīgi,
 Lapas neietekmē viena otras ielādes ātrumus,
 
 Tādējādi tenants var droši izveidot daudz lapas, nenoslogojot infrastruktūru.
+
+### Block management (MVP)
+
+The landing builder does **not** need drag-and-drop in the first version.
+
+    Each landing version consists of an ordered list of blocks.
+    The builder shows an “Add block” button with a dropdown of all available block types
+
+  (Hero, Video, Benefits, Gallery, Testimonials, FAQ, Text+Image, Event highlight,
+  Contact form, etc.).
+
+    When the user selects a block type, that block is appended to the **end** of the
+
+  current block list.
+
+    Each block row in the UI must have:
+        “Move up” action – swaps this block with the one above it.
+        “Move down” action – swaps this block with the one below it.
+        “Delete” (or “Hide”) action – removes this block from the current landing version.
+
+The ordering is stored on the landing version, so the public page always renders blocks
+in the same order as configured in the builder.
+
+### Contact form and event selection
+
+The landing contact form is responsible for registering participants to events.
+To keep the system simple, there is only **one** contact form type, with a configurable
+list of events.
+
+#### Event selection model
+
+    Each landing version may include at most one **Contact form** block.
+    The Contact form block has a configuration field, e.g. `allowedEventIds: string[]`,
+
+  that stores the list of events that are allowed for this landing.
+
+    In the admin UI, when editing the Contact form block, the user can:
+        search and select one or more upcoming events owned by the same tenant;
+        remove events from this list at any time.
+
+There is no explicit “single vs multi event mode” switch:
+
+    If `allowedEventIds.length === 0`:
+        This is considered a misconfiguration; the builder should show a warning
+
+    (e.g. “Please select at least one event for this contact form”).
+
+    The public page may hide the form or show a generic error.
+
+    If `allowedEventIds.length === 1`:
+
+    The form behaves as a **single-event** registration form.
+    The public UI may hide the event dropdown and implicitly use that event,
+
+    or render a disabled select with a single option. In both cases, the
+    submitted registration is linked to that one event.
+
+    If `allowedEventIds.length > 1`:
+        The public form must show an **Event** select field where the participant
+
+    chooses one of the configured events (e.g. “Darkness hike – Dec 5”, “Mindfulness
+    hike – Dec 12”, etc.).
+
+    On submit, the registration is linked to the selected event.
+
+#### Registration behavior
+
+    Submissions from the landing contact form create `EventParticipant` records,
+
+  exactly like registrations from the public event page.
+
+    Each participant created from a landing contact form should store a reference
+
+  to the landing page / landing version as the **source**, e.g. sourceLandingId
+  or `sourceLandingSlug`, so analytics can later answer “Which landing generated
+  this registration?”.
+
+The UX goal: a tenant can create one “Darkness hikes” landing page with a rich,
+evergreen description and let participants choose among multiple concrete future
+event dates directly in the contact form, without creating separate landings for
+each date.
+
+There is no separate “single event” mode. The contact form always supports
+multiple events. A “single event” case is simply when allowedEventIds has one item.
+Blocks cannot be re-arranged by drag and drop.
+Reordering is performed only by:
+
+    Move Up
+    Move Down
+
+Each button swaps the current block with the adjacent one.
+Available block types (MVP):
+
+    hero
+    textImage
+    video
+    gallery
+    testimonials
+    faq
+    eventHighlight
+    contactForm   ← NEW
