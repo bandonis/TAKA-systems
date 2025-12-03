@@ -152,6 +152,7 @@ model LandingPage {
   publishedVersionId String?            @unique
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+  status             LandingStatus      @default(DRAFT)
   participants       EventParticipant[]
   blocks             LandingBlock[]
   publishedVersion   LandingVersion?    @relation("LandingPublishedVersion", fields: [publishedVersionId], references: [id])
@@ -488,6 +489,11 @@ enum LandingBlockType {
   GUIDES
   CUSTOM_HTML
   FOOTER
+}
+
+enum LandingStatus {
+  DRAFT
+  PUBLISHED
 }
 
 enum ContactFieldType {

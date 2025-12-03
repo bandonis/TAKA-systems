@@ -1,15 +1,20 @@
+import { randomBytes } from 'crypto';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import type { LandingBlock, LandingStatus } from '@prisma/client';
 import { getSession } from '@/lib/auth/cookies';
 import { getPrisma } from '@/lib/db';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { buildContactFormContent, getBlockVariantDefinition } from '@/lib/landings/blocks';
 
-const statusMeta = {
-  published: { label: 'Published', variant: 'success' as const },
-  draft: { label: 'Draft', variant: 'outline' as const }
+import { CreateLandingButton } from './_components/create-landing-button';
+
+const LANDING_STATUS_META: Record<LandingStatus, { label: string; variant: 'success' | 'outline' }> = {
+  PUBLISHED: { label: 'Published', variant: 'success' },
+  DRAFT: { label: 'Draft', variant: 'outline' }
 };
 
 async function getTenantLandings() {
@@ -24,18 +29,12 @@ async function getTenantLandings() {
   const landings = await prisma.landingPage.findMany({
     where: { tenantId: session.tenantId },
     orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      publishedVersionId: true,
-      createdAt: true
-    }
+    select: { id: true, title: true, slug: true, status: true, createdAt: true }
   });
 
   return landings.map((landing) => ({
     ...landing,
-    status: landing.publishedVersionId ? statusMeta.published : statusMeta.draft
+    statusBadge: LANDING_STATUS_META[landing.status]
   }));
 }
 
@@ -50,15 +49,15 @@ export default async function LandingsPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Control the public story</h1>
           <p className="text-muted-foreground">Preview, edit, and publish the pages that introduce your adventures.</p>
         </div>
-        <Button variant="outline" disabled>
-          Coming soon
-        </Button>
+        <form action={createLandingAction} className="w-full sm:w-auto">
+          <CreateLandingButton />
+        </form>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Your landing pages</CardTitle>
-          <CardDescription>Each page is scoped to this tenant and listed newest first.</CardDescription>
+          <CardDescription>Create new concepts and keep track of every landing scoped to this tenant.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {landings.length > 0 ? (
@@ -84,7 +83,7 @@ export default async function LandingsPage() {
                         <code className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">/{landing.slug}</code>
                       </td>
                       <td className="py-3">
-                        <Badge variant={landing.status.variant}>{landing.status.label}</Badge>
+                        <Badge variant={landing.statusBadge.variant}>{landing.statusBadge.label}</Badge>
                       </td>
                       <td className="py-3 text-muted-foreground">
                         {landing.createdAt.toLocaleDateString(undefined, {
@@ -105,12 +104,92 @@ export default async function LandingsPage() {
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              No landing pages yet. You’ll be able to create one soon.
+              No landing pages yet. Use the button above to launch your first one.
             </div>
           )}
         </CardContent>
       </Card>
     </section>
   );
+}
+
+async function createLandingAction() {
+  'use server';
+
+  const session = await getSession();
+
+  if (!session?.tenantId) {
+    redirect('/');
+  }
+
+  const prisma = getPrisma();
+  const slug = await generateLandingSlug(prisma, session.tenantId);
+
+  const heroDefinition = getBlockVariantDefinition('hero');
+  const contactDefinition = getBlockVariantDefinition('contactForm');
+
+  if (!heroDefinition || !contactDefinition) {
+    throw new Error('Required block definitions are missing.');
+  }
+
+  const landing = await prisma.$transaction(async (tx) => {
+    const createdLanding = await tx.landingPage.create({
+      data: {
+        tenantId: session.tenantId,
+        title: 'New landing page',
+        slug,
+        status: 'DRAFT'
+      }
+    });
+
+    await tx.landingBlock.create({
+      data: {
+        landingId: createdLanding.id,
+        tenantId: session.tenantId,
+        blockType: heroDefinition.blockType,
+        content: heroDefinition.defaultContent,
+        orderIndex: 0,
+        visibleMobile: true,
+        visibleDesktop: true
+      }
+    });
+
+    const contactContent = buildContactFormContent(
+      { content: contactDefinition.defaultContent } as Pick<LandingBlock, 'content'>,
+      { allowedEventIds: [] }
+    );
+
+    await tx.landingBlock.create({
+      data: {
+        landingId: createdLanding.id,
+        tenantId: session.tenantId,
+        blockType: contactDefinition.blockType,
+        content: contactContent,
+        orderIndex: 1,
+        visibleMobile: true,
+        visibleDesktop: true
+      }
+    });
+
+    return createdLanding;
+  });
+
+  redirect(`/landings/${landing.id}`);
+}
+
+async function generateLandingSlug(prisma: ReturnType<typeof getPrisma>, tenantId: string) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = `landing-${randomBytes(3).toString('hex')}`;
+    const existing = await prisma.landingPage.findFirst({
+      where: { tenantId, slug: candidate },
+      select: { id: true }
+    });
+
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  throw new Error('Unable to generate unique slug. Please retry.');
 }
 

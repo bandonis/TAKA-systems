@@ -10,6 +10,7 @@ import { BLOCK_VARIANTS, getContactFormConfig, isContactFormBlock, resolveVarian
 
 import { AddBlockControl } from './_components/add-block-control';
 import { BlockCard } from './_components/block-card';
+import { LandingHeaderForm } from './_components/landing-header-form';
 
 type EventOption = {
   id: string;
@@ -43,6 +44,16 @@ export default async function LandingDetailPage({ params }: { params: Promise<{ 
           <p className="text-sm text-muted-foreground">Slug · /{landing.slug}</p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Header</CardTitle>
+          <CardDescription>Control the public title, slug, and publish status.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LandingHeaderForm landingId={landing.id} title={landing.title} slug={landing.slug} status={landing.status} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -101,7 +112,11 @@ async function getLandingData(landingId: string) {
 
   const landing = await prisma.landingPage.findFirst({
     where: { id: landingId, tenantId: session.tenantId },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      status: true,
       blocks: {
         orderBy: { orderIndex: 'asc' },
         select: {
