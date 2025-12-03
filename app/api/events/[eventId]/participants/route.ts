@@ -8,6 +8,7 @@ import { calculateEventPrice } from '@/lib/events';
 import { withTenantRoute, BadRequestError, NotFoundError, ConflictError } from '@/lib/tenants';
 import { PAYMENT_STATUS, PAYMENT_TYPE } from '@/lib/prisma/enums';
 import { normalizeParam } from '@/lib/utils/params';
+import { syncParticipantRegistrationDefaults } from '@/lib/tenant-settings/participant-defaults';
 
 export const runtime = "nodejs";
 
@@ -111,6 +112,13 @@ export const POST = withTenantRoute(
       },
       { isolationLevel: 'Serializable' }
     );
+
+    await syncParticipantRegistrationDefaults({
+      prisma,
+      tenantId: tenant.tenantId,
+      name: result.participant.name,
+      email: result.participant.email
+    });
 
     return NextResponse.json(
       {

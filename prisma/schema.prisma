@@ -3,8 +3,444 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Tenant {
+  id                String             @id @default(cuid())
+  name              String
+  logoUrl           String?
+  primaryColor      String?
+  language          String?
+  subscriptionPlan  String?
+  status            TenantStatus       @default(ACTIVE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  b2bDeals          B2BDeal[]
+  b2bInvoices       B2BInvoice[]
+  b2bLeads          B2BLead[]
+  consents          Consent[]
+  consentTemplates  ConsentTemplate[]
+  contactForms      ContactForm[]
+  conversionEvents  ConversionEvent[]
+  emailLogs         EmailLog[]
+  emailTemplates    EmailTemplate[]
+  events            Event[]
+  eventExpenses     EventExpense[]
+  eventParticipants EventParticipant[]
+  eventTypes        EventType[]
+  globalExpenses    GlobalExpense[]
+  landingBlocks     LandingBlock[]
+  landingPages      LandingPage[]
+  landingVersions   LandingVersion[]
+  leads             Lead[]
+  pageViews         PageView[]
+  receipts          Receipt[]
+  settings          TenantSettings?
+  users             User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model TenantSettings {
+  id                     String   @id @default(cuid())
+  tenantId               String   @unique
+  primaryBrandColor      String?
+  secondaryBrandColor    String?
+  timezone               String?
+  currency               String?
+  defaultLanguage        String?
+  landingBuilderSettings Json?
+  emailFromName          String?
+  emailFromAddress       String?
+  analyticsConfig        Json?
+  notificationEmails     String[]
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model EventType {
+  id                       String    @id @default(cuid())
+  tenantId                 String
+  name                     String
+  description              String?
+  defaultPriceSingle       Decimal?  @db.Decimal(12, 2)
+  defaultPriceGroup        Decimal?  @db.Decimal(12, 2)
+  defaultEarlyBirdPrice    Decimal?  @db.Decimal(12, 2)
+  defaultEarlyBirdDeadline DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  events                   Event[]
+  tenant                   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model Event {
+  id                String             @id @default(cuid())
+  tenantId          String
+  eventTypeId       String?
+  title             String
+  description       String?
+  date              DateTime
+  time              String?
+  maxParticipants   Int?
+  priceSingle       Decimal?           @db.Decimal(12, 2)
+  priceGroup        Decimal?           @db.Decimal(12, 2)
+  earlyBirdPrice    Decimal?           @db.Decimal(12, 2)
+  earlyBirdDeadline DateTime?
+  location          String?
+  guideName         String?
+  visibility        EventVisibility    @default(DRAFT)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  consents          Consent[]
+  eventType         EventType?         @relation(fields: [eventTypeId], references: [id])
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expenses          EventExpense[]
+  participants      EventParticipant[]
+
+  @@index([tenantId])
+  @@index([eventTypeId])
+}
+
+model EventParticipant {
+  id                      String        @id @default(cuid())
+  tenantId                String
+  eventId                 String
+  name                    String
+  email                   String
+  phone                   String?
+  ticketCount             Int           @default(1)
+  amountPaid              Decimal?      @db.Decimal(12, 2)
+  paymentStatus           PaymentStatus @default(PENDING)
+  paymentType             PaymentType?
+  stripeSessionId         String?
+  paymentReference        String?
+  hasConsent              Boolean       @default(false)
+  registeredFromLandingId String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  event                   Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registeredFromLanding   LandingPage?  @relation(fields: [registeredFromLandingId], references: [id])
+  tenant                  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receipt                 Receipt?
+
+  @@index([tenantId])
+  @@index([eventId])
+}
+
+model LandingPage {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  title              String
+  slug               String
+  publishedVersionId String?            @unique
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  participants       EventParticipant[]
+  blocks             LandingBlock[]
+  publishedVersion   LandingVersion?    @relation("LandingPublishedVersion", fields: [publishedVersionId], references: [id])
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versions           LandingVersion[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model LandingBlock {
+  id             String           @id @default(cuid())
+  landingId      String
+  tenantId       String
+  blockType      LandingBlockType
+  content        Json
+  visibleMobile  Boolean          @default(true)
+  visibleDesktop Boolean          @default(true)
+  orderIndex     Int
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  landing        LandingPage      @relation(fields: [landingId], references: [id], onDelete: Cascade)
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([landingId, orderIndex])
+}
+
+model LandingVersion {
+  id           String       @id @default(cuid())
+  landingId    String
+  tenantId     String
+  jsonSnapshot Json
+  createdAt    DateTime     @default(now())
+  publishedFor LandingPage? @relation("LandingPublishedVersion")
+  landing      LandingPage  @relation(fields: [landingId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([landingId])
+}
+
+model ContactForm {
+  id             String             @id @default(cuid())
+  tenantId       String
+  name           String
+  successMessage String?
+  settings       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fields         ContactFormField[]
+  leads          Lead[]
+
+  @@index([tenantId])
+}
+
+model ContactFormField {
+  id          String           @id @default(cuid())
+  formId      String
+  label       String
+  type        ContactFieldType
+  required    Boolean          @default(false)
+  placeholder String?
+  options     Json?
+  orderIndex  Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  form        ContactForm      @relation(fields: [formId], references: [id], onDelete: Cascade)
+}
+
+model Lead {
+  id        String      @id @default(cuid())
+  tenantId  String
+  formId    String
+  data      Json
+  source    String?
+  createdAt DateTime    @default(now())
+  form      ContactForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([formId])
+}
+
+model B2BLead {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  email               String?
+  phone               String?
+  companyName         String
+  participantEstimate Int?
+  eventType           String?
+  comment             String?
+  source              String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deals               B2BDeal[]
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model B2BDeal {
+  id             String       @id @default(cuid())
+  tenantId       String
+  leadId         String?
+  amount         Decimal?     @db.Decimal(12, 2)
+  legalName      String?
+  registrationNo String?
+  address        String?
+  eventDate      DateTime?
+  status         DealStatus   @default(LEAD)
+  statusTimeline Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  lead           B2BLead?     @relation(fields: [leadId], references: [id])
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices       B2BInvoice[]
+
+  @@index([tenantId])
+  @@index([leadId])
+}
+
+model B2BInvoice {
+  id            String        @id @default(cuid())
+  tenantId      String
+  dealId        String
+  invoiceNumber String
+  amount        Decimal       @db.Decimal(12, 2)
+  status        InvoiceStatus @default(DRAFT)
+  sentAt        DateTime?
+  openedAt      DateTime?
+  paidAt        DateTime?
+  pdfUrl        String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deal          B2BDeal       @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  emailLogs     EmailLog[]
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([dealId])
+  @@index([tenantId])
+}
+
+model Receipt {
+  id               String           @id @default(cuid())
+  tenantId         String
+  participantId    String           @unique
+  amount           Decimal          @db.Decimal(12, 2)
+  currency         String
+  paymentReference String?
+  type             ReceiptType      @default(B2C)
+  issuedAt         DateTime         @default(now())
+  pdfUrl           String?
+  metadata         Json?
+  participant      EventParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model GlobalExpense {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  amount    Decimal  @db.Decimal(12, 2)
+  tag       String?
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model EventExpense {
+  id        String   @id @default(cuid())
+  tenantId  String
+  eventId   String
+  name      String
+  amount    Decimal  @db.Decimal(12, 2)
+  tag       String?
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([eventId])
+}
+
+model ConsentTemplate {
+  id        String      @id @default(cuid())
+  tenantId  String
+  type      ConsentType
+  title     String
+  content   Json
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  consents  Consent[]
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model Consent {
+  id                String           @id @default(cuid())
+  tenantId          String
+  eventId           String?
+  email             String
+  consentType       ConsentType
+  contentSnapshot   Json
+  ip                String?
+  userAgent         String?
+  signedAt          DateTime
+  createdAt         DateTime         @default(now())
+  consentTemplateId String?
+  ConsentTemplate   ConsentTemplate? @relation(fields: [consentTemplateId], references: [id])
+  event             Event?           @relation(fields: [eventId], references: [id])
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([eventId])
+}
+
+model EmailTemplate {
+  id        String            @id @default(cuid())
+  tenantId  String
+  name      String
+  type      EmailTemplateType
+  subject   String
+  body      String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  emailLogs EmailLog[]
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model EmailLog {
+  id           String         @id @default(cuid())
+  tenantId     String
+  templateId   String?
+  invoiceId    String?
+  recipient    String
+  subject      String
+  status       EmailStatus    @default(PENDING)
+  payload      Json?
+  errorMessage String?
+  sentAt       DateTime?      @default(now())
+  createdAt    DateTime       @default(now())
+  invoice      B2BInvoice?    @relation(fields: [invoiceId], references: [id])
+  template     EmailTemplate? @relation(fields: [templateId], references: [id])
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+}
+
+model PageView {
+  id        String   @id @default(cuid())
+  tenantId  String
+  page      String
+  source    String?
+  referrer  String?
+  sessionId String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([page])
+}
+
+model ConversionEvent {
+  id        String              @id @default(cuid())
+  tenantId  String
+  eventType ConversionEventType
+  value     Decimal?            @db.Decimal(12, 2)
+  metadata  Json?
+  createdAt DateTime            @default(now())
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([eventType])
 }
 
 enum TenantStatus {
@@ -101,449 +537,4 @@ enum ConversionEventType {
   FORM_SUBMISSION
   REGISTRATION
   PAYMENT
-}
-
-model Tenant {
-  id               String       @id @default(cuid())
-  name             String
-  logoUrl          String?
-  primaryColor     String?
-  language         String?
-  subscriptionPlan String?
-  status           TenantStatus @default(ACTIVE)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-
-  users             User[]
-  settings          TenantSettings?
-  eventTypes        EventType[]
-  events            Event[]
-  eventParticipants EventParticipant[]
-  landingPages      LandingPage[]
-  landingBlocks     LandingBlock[]
-  landingVersions   LandingVersion[]
-  contactForms      ContactForm[]
-  leads             Lead[]
-  b2bLeads          B2BLead[]
-  b2bDeals          B2BDeal[]
-  b2bInvoices       B2BInvoice[]
-  receipts          Receipt[]
-  globalExpenses    GlobalExpense[]
-  eventExpenses     EventExpense[]
-  consentTemplates  ConsentTemplate[]
-  consents          Consent[]
-  emailTemplates    EmailTemplate[]
-  emailLogs         EmailLog[]
-  pageViews         PageView[]
-  conversionEvents  ConversionEvent[]
-}
-
-model User {
-  id           String   @id @default(cuid())
-  tenantId     String?
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  email        String   @unique
-  passwordHash String
-  role         UserRole @default(ADMIN)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([tenantId])
-}
-
-model TenantSettings {
-  id                     String   @id @default(cuid())
-  tenantId               String   @unique
-  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  primaryBrandColor      String?
-  secondaryBrandColor    String?
-  timezone               String?
-  currency               String?
-  defaultLanguage        String?
-  landingBuilderSettings Json?
-  emailFromName          String?
-  emailFromAddress       String?
-  analyticsConfig        Json?
-  notificationEmails     String[]
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-}
-
-model EventType {
-  id                       String    @id @default(cuid())
-  tenantId                 String
-  tenant                   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name                     String
-  description              String?
-  defaultPriceSingle       Decimal?  @db.Decimal(12, 2)
-  defaultPriceGroup        Decimal?  @db.Decimal(12, 2)
-  defaultEarlyBirdPrice    Decimal?  @db.Decimal(12, 2)
-  defaultEarlyBirdDeadline DateTime?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
-
-  events Event[]
-
-  @@index([tenantId])
-}
-
-model Event {
-  id                String          @id @default(cuid())
-  tenantId          String
-  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  eventTypeId       String?
-  eventType         EventType?      @relation(fields: [eventTypeId], references: [id], onDelete: SetNull)
-  title             String
-  description       String?
-  date              DateTime
-  time              String?
-  maxParticipants   Int?
-  priceSingle       Decimal?        @db.Decimal(12, 2)
-  priceGroup        Decimal?        @db.Decimal(12, 2)
-  earlyBirdPrice    Decimal?        @db.Decimal(12, 2)
-  earlyBirdDeadline DateTime?
-  location          String?
-  guideName         String?
-  visibility        EventVisibility @default(DRAFT)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-
-  participants EventParticipant[]
-  expenses     EventExpense[]
-  consents     Consent[]
-
-  @@index([tenantId])
-  @@index([eventTypeId])
-}
-
-model EventParticipant {
-  id                      String        @id @default(cuid())
-  tenantId                String
-  tenant                  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  eventId                 String
-  event                   Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name                    String
-  email                   String
-  phone                   String?
-  ticketCount             Int           @default(1)
-  amountPaid              Decimal?      @db.Decimal(12, 2)
-  paymentStatus           PaymentStatus @default(PENDING)
-  paymentType             PaymentType?
-  stripeSessionId         String?
-  paymentReference        String?
-  hasConsent              Boolean       @default(false)
-  registeredFromLandingId String?
-  registeredFromLanding   LandingPage?  @relation(fields: [registeredFromLandingId], references: [id], onDelete: SetNull)
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  receipt                 Receipt?
-
-  @@index([tenantId])
-  @@index([eventId])
-}
-
-model LandingPage {
-  id                 String          @id @default(cuid())
-  tenantId           String
-  tenant             Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  title              String
-  slug               String
-  publishedVersionId String?         @unique
-  publishedVersion   LandingVersion? @relation("LandingPublishedVersion", fields: [publishedVersionId], references: [id])
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-
-  versions     LandingVersion[]
-  blocks       LandingBlock[]
-  participants EventParticipant[]
-
-  @@unique([tenantId, slug])
-  @@index([tenantId])
-}
-
-model LandingBlock {
-  id             String           @id @default(cuid())
-  landingId      String
-  landing        LandingPage      @relation(fields: [landingId], references: [id], onDelete: Cascade)
-  tenantId       String
-  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  blockType      LandingBlockType
-  content        Json
-  visibleMobile  Boolean          @default(true)
-  visibleDesktop Boolean          @default(true)
-  orderIndex     Int
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-
-  @@index([tenantId])
-  @@index([landingId, orderIndex])
-}
-
-model LandingVersion {
-  id           String       @id @default(cuid())
-  landingId    String
-  landing      LandingPage  @relation(fields: [landingId], references: [id], onDelete: Cascade)
-  tenantId     String
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  jsonSnapshot Json
-  createdAt    DateTime     @default(now())
-  publishedFor LandingPage? @relation("LandingPublishedVersion")
-
-  @@index([tenantId])
-  @@index([landingId])
-}
-
-model ContactForm {
-  id             String   @id @default(cuid())
-  tenantId       String
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name           String
-  successMessage String?
-  settings       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  fields ContactFormField[]
-  leads  Lead[]
-
-  @@index([tenantId])
-}
-
-model ContactFormField {
-  id          String           @id @default(cuid())
-  formId      String
-  form        ContactForm      @relation(fields: [formId], references: [id], onDelete: Cascade)
-  label       String
-  type        ContactFieldType
-  required    Boolean          @default(false)
-  placeholder String?
-  options     Json?
-  orderIndex  Int              @default(0)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-}
-
-model Lead {
-  id        String      @id @default(cuid())
-  tenantId  String
-  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  formId    String
-  form      ContactForm @relation(fields: [formId], references: [id], onDelete: Cascade)
-  data      Json
-  source    String?
-  createdAt DateTime    @default(now())
-
-  @@index([tenantId])
-  @@index([formId])
-}
-
-model B2BLead {
-  id                  String   @id @default(cuid())
-  tenantId            String
-  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  email               String?
-  phone               String?
-  companyName         String
-  participantEstimate Int?
-  eventType           String?
-  comment             String?
-  source              String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  deals B2BDeal[]
-
-  @@index([tenantId])
-}
-
-model B2BDeal {
-  id             String     @id @default(cuid())
-  tenantId       String
-  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  leadId         String?
-  lead           B2BLead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  amount         Decimal?   @db.Decimal(12, 2)
-  legalName      String?
-  registrationNo String?
-  address        String?
-  eventDate      DateTime?
-  status         DealStatus @default(LEAD)
-  statusTimeline Json?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  invoices B2BInvoice[]
-
-  @@index([tenantId])
-  @@index([leadId])
-}
-
-model B2BInvoice {
-  id            String        @id @default(cuid())
-  tenantId      String
-  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  dealId        String
-  deal          B2BDeal       @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  invoiceNumber String
-  amount        Decimal       @db.Decimal(12, 2)
-  status        InvoiceStatus @default(DRAFT)
-  sentAt        DateTime?
-  openedAt      DateTime?
-  paidAt        DateTime?
-  pdfUrl        String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  emailLogs EmailLog[]
-
-  @@unique([tenantId, invoiceNumber])
-  @@index([dealId])
-  @@index([tenantId])
-}
-
-model Receipt {
-  id               String           @id @default(cuid())
-  tenantId         String
-  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  participantId    String           @unique
-  participant      EventParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  amount           Decimal          @db.Decimal(12, 2)
-  currency         String
-  paymentReference String?
-  type             ReceiptType      @default(B2C)
-  issuedAt         DateTime         @default(now())
-  pdfUrl           String?
-  metadata         Json?
-}
-
-model GlobalExpense {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name      String
-  amount    Decimal  @db.Decimal(12, 2)
-  tag       String?
-  date      DateTime
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId])
-}
-
-model EventExpense {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name      String
-  amount    Decimal  @db.Decimal(12, 2)
-  tag       String?
-  date      DateTime
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId])
-  @@index([eventId])
-}
-
-model ConsentTemplate {
-  id        String      @id @default(cuid())
-  tenantId  String
-  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  type      ConsentType
-  title     String
-  content   Json
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  consents Consent[]
-
-  @@index([tenantId])
-}
-
-model Consent {
-  id                String           @id @default(cuid())
-  tenantId          String
-  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  eventId           String?
-  event             Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  email             String
-  consentType       ConsentType
-  contentSnapshot   Json
-  ip                String?
-  userAgent         String?
-  signedAt          DateTime
-  createdAt         DateTime         @default(now())
-  ConsentTemplate   ConsentTemplate? @relation(fields: [consentTemplateId], references: [id])
-  consentTemplateId String?
-
-  @@index([tenantId])
-  @@index([eventId])
-}
-
-model EmailTemplate {
-  id        String            @id @default(cuid())
-  tenantId  String
-  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name      String
-  type      EmailTemplateType
-  subject   String
-  body      String
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-
-  emailLogs EmailLog[]
-
-  @@index([tenantId])
-}
-
-model EmailLog {
-  id           String         @id @default(cuid())
-  tenantId     String
-  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  templateId   String?
-  template     EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  invoiceId    String?
-  invoice      B2BInvoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  recipient    String
-  subject      String
-  status       EmailStatus    @default(PENDING)
-  payload      Json?
-  errorMessage String?
-  sentAt       DateTime?      @default(now())
-  createdAt    DateTime       @default(now())
-
-  @@index([tenantId])
-  @@index([invoiceId])
-}
-
-model PageView {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  page      String
-  source    String?
-  referrer  String?
-  sessionId String?
-  metadata  Json?
-  createdAt DateTime @default(now())
-
-  @@index([tenantId])
-  @@index([page])
-}
-
-model ConversionEvent {
-  id        String              @id @default(cuid())
-  tenantId  String
-  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  eventType ConversionEventType
-  value     Decimal?            @db.Decimal(12, 2)
-  metadata  Json?
-  createdAt DateTime            @default(now())
-
-  @@index([tenantId])
-  @@index([eventType])
 }

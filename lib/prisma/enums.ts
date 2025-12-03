@@ -39,3 +39,11 @@ export const PAYMENT_TYPE = {
 export type PaymentType = (typeof PAYMENT_TYPE)[keyof typeof PAYMENT_TYPE];
 export const PAYMENT_TYPE_VALUES = Object.values(PAYMENT_TYPE) as PaymentType[];
 
+export const BILLING_LEGAL_TYPE = {
+  COMPANY: 'COMPANY',
+  INDIVIDUAL: 'INDIVIDUAL'
+} as const;
+
+export type BillingLegalType = (typeof BILLING_LEGAL_TYPE)[keyof typeof BILLING_LEGAL_TYPE];
+export const BILLING_LEGAL_TYPE_VALUES = Object.values(BILLING_LEGAL_TYPE) as BillingLegalType[];
+

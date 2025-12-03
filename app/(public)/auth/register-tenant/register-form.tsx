@@ -45,12 +45,16 @@ export function RegisterTenantForm() {
       return;
     }
 
+    const registrationName = splitFullName(parsed.data.name);
+
     setIsSubmitting(true);
     const body = {
       tenantName: parsed.data.tenantName,
       adminEmail: parsed.data.email,
       adminPassword: parsed.data.password,
-      language: 'en'
+      language: 'en',
+      ...(registrationName.firstName ? { adminFirstName: registrationName.firstName } : {}),
+      ...(registrationName.lastName ? { adminLastName: registrationName.lastName } : {})
     };
 
     try {
@@ -116,5 +120,16 @@ export function RegisterTenantForm() {
       </Button>
     </form>
   );
+}
+
+function splitFullName(fullName: string) {
+  const trimmed = fullName.trim();
+  if (!trimmed) {
+    return { firstName: undefined, lastName: undefined };
+  }
+
+  const [firstName, ...rest] = trimmed.split(/\s+/);
+  const lastName = rest.length > 0 ? rest.join(' ') : undefined;
+  return { firstName, lastName };
 }
 

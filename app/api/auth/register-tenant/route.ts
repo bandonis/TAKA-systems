@@ -14,7 +14,9 @@ const registerSchema = z.object({
   adminEmail: z.string().email(),
   adminPassword: z.string().min(8, 'Password must be at least 8 characters'),
   language: z.string().min(2).max(5).default('en'),
-  primaryColor: z.string().optional()
+  primaryColor: z.string().optional(),
+  adminFirstName: z.string().trim().max(120).optional(),
+  adminLastName: z.string().trim().max(120).optional()
 });
 
 export async function POST(req: Request) {
@@ -47,7 +49,10 @@ export async function POST(req: Request) {
         data: {
           tenantId: createdTenant.id,
           defaultLanguage: input.language,
-          primaryBrandColor: input.primaryColor
+          primaryBrandColor: input.primaryColor,
+          analyticsConfig: {
+            registrationDefaults: buildRegistrationDefaults(input)
+          }
         }
       });
 
@@ -96,6 +101,17 @@ export async function POST(req: Request) {
     console.error('Failed to register tenant', error);
     return NextResponse.json({ error: 'Unable to register tenant' }, { status: 500 });
   }
+}
+
+function buildRegistrationDefaults(input: z.infer<typeof registerSchema>) {
+  const firstName = input.adminFirstName?.trim();
+  const lastName = input.adminLastName?.trim();
+
+  return {
+    firstName: firstName && firstName.length > 0 ? firstName : null,
+    lastName: lastName && lastName.length > 0 ? lastName : null,
+    email: input.adminEmail
+  };
 }
 
 

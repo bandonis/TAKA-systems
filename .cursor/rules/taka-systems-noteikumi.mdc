@@ -190,3 +190,41 @@ To avoid repeating past issues, the agent must:
 - For typing:
   - Prefer inferred types in Prisma queries and `$transaction` callbacks instead of manual `PrismaClient` annotations.
   - Avoid converting type-only imports into value usage.
+# ==========================
+# 11. COMMAND EXECUTION RULES
+# ==========================
+
+# The agent MUST NOT run destructive or heavy commands inside the Cursor sandbox.
+
+# Forbidden commands (NEVER RUN):
+# - npm run build
+# - npm run dev
+# - npm install
+# - npx prisma migrate dev
+# - npx prisma migrate deploy
+# - npx prisma db push
+# - npx prisma generate
+# - any command touching the database schema
+# - any long-running or blocking shell commands
+
+# Allowed commands:
+# - none, unless explicitly permitted in writing
+
+# Agent behavior:
+- If the agent wants to run any of the forbidden commands, it must NOT request sandbox execution.
+- Instead, the agent must output:  
+  “⚠️ Build/migrate commands must be run manually on the developer's local machine. I will proceed without executing them.”
+
+- The agent must NEVER request elevated permissions (full permissions run).
+- The agent must NEVER re-run or re-queue build/migrate tasks automatically.
+- The agent must NEVER attempt to resolve build errors inside Cursor by running commands.
+- The agent must ALWAYS let the developer run builds locally.
+
+# Workflow:
+- Agent writes code.
+- Developer runs:
+  - npm install
+  - prisma migrate dev
+  - npm run dev
+  - npm run build
+- Agent reacts to resulting errors AFTER developer shares them.

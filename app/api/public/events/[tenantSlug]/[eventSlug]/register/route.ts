@@ -6,6 +6,7 @@ import { calculateEventPrice } from '@/lib/events';
 import { getEventBySlug, getTenantBySlug } from '@/lib/events/public';
 import { createCheckoutSessionForParticipant } from '@/lib/payments';
 import { EVENT_VISIBILITY, PAYMENT_STATUS, PAYMENT_TYPE } from '@/lib/prisma/enums';
+import { syncParticipantRegistrationDefaults } from '@/lib/tenant-settings/participant-defaults';
 
 export const runtime = "nodejs";
 
@@ -108,6 +109,13 @@ export async function POST(req: Request, context: { params: Promise<RouteParams>
       data: {
         stripeSessionId: session.id
       }
+    });
+
+    await syncParticipantRegistrationDefaults({
+      prisma,
+      tenantId: tenant.id,
+      name: input.name,
+      email: input.email
     });
 
     return NextResponse.json({ checkoutUrl: session.url }, { status: 201 });
