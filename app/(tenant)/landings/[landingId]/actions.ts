@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { LandingStatus } from '@prisma/client';
 
 import { getSession } from '@/lib/auth/cookies';
 import { getPrisma } from '@/lib/db';
@@ -27,7 +28,7 @@ const updateLandingHeaderSchema = z.object({
     .max(120, 'Slug must be 120 characters or fewer.')
     .transform((value) => value.trim().toLowerCase())
     .refine((value) => slugPattern.test(value), 'Use lowercase letters, numbers, and hyphens only.'),
-  status: z.enum(['DRAFT', 'PUBLISHED'], {
+  status: z.nativeEnum(LandingStatus, {
     errorMap: () => ({ message: 'Select a valid status.' })
   })
 });

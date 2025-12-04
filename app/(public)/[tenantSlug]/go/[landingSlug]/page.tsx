@@ -62,12 +62,12 @@ export default async function PublicLandingPage({ params }: PublicLandingPagePro
   const landing = await prisma.landingPage.findFirst({
     where: {
       tenantId: tenant.id,
-      slug: landingSlug,
-      status: 'PUBLISHED'
+      slug: landingSlug
     },
     select: {
       id: true,
-      title: true
+      title: true,
+      status: true
     }
   });
 
@@ -96,9 +96,17 @@ export default async function PublicLandingPage({ params }: PublicLandingPagePro
 
   const contactEventLookup = await loadContactEvents(prisma, tenant.id, blocks);
 
+  const isDraft = landing.status !== 'PUBLISHED';
+
   return (
     <main className="bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
+        {isDraft ? (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            This landing page is currently in <span className="font-semibold">Draft</span>. Publish it in the admin panel to
+            share it with participants.
+          </div>
+        ) : null}
         <header className="space-y-2 text-center">
           <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">{tenant.name}</p>
           <h1 className="text-4xl font-semibold tracking-tight">{landing.title}</h1>
