@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { BLOCK_VARIANTS, getContactFormConfig, isContactFormBlock, resolveVariantIdForBlock } from '@/lib/landings/blocks';
 import { getLandingPublicPath } from '@/lib/landings/urls';
+import { getTenantPublicSlug } from '@/lib/tenant/urls';
 
 import { AddBlockControl } from './_components/add-block-control';
 import { BlockCard } from './_components/block-card';
@@ -122,8 +123,16 @@ async function getLandingData(landingId: string) {
   }
 
   const tenantId = session.tenantId;
-  const tenantSlug = tenantId; // TODO: replace with real slug / custom domain mapping later
   const prisma = getPrisma();
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true, slug: true }
+  });
+
+  if (!tenant) {
+    notFound();
+  }
 
   const landing = await prisma.landingPage.findFirst({
     where: { id: landingId, tenantId },
@@ -151,7 +160,7 @@ async function getLandingData(landingId: string) {
     notFound();
   }
 
-  return { landing, tenantId, tenantSlug };
+  return { landing, tenantId, tenantSlug: getTenantPublicSlug(tenant) };
 }
 
 async function getUpcomingEvents(tenantId: string): Promise<EventOption[]> {

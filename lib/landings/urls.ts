@@ -7,7 +7,7 @@ function encodeSegment(value: string) {
   return encodeURIComponent(value.trim());
 }
 
-// tenantSlug currently equals the tenant ID; slugs/custom domains will map here later.
+// tenantSlug should already be normalized via getTenantPublicSlug (falls back to tenant.id if missing)
 export function getLandingPublicPath({ tenantSlug, landingSlug }: LandingPublicPathParams) {
   return `/${encodeSegment(tenantSlug)}/go/${encodeSegment(landingSlug)}`;
 }

@@ -3,13 +3,22 @@ import { fetchTenantApi } from '@/lib/tenant/api';
 import { normalizeBillingProfile } from '@/lib/tenant-settings/billing-profile';
 import type { BillingProfileFormValues } from './_components/billing-profile-form';
 import { BillingProfileForm } from './_components/billing-profile-form';
+import { TenantSlugForm } from './_components/tenant-slug-form';
 
 type TenantSettingsResponse = {
   settings: BillingProfileFormValues;
 };
 
+type TenantSlugResponse = {
+  slug: string | null;
+  publicSlug: string;
+};
+
 export default async function SettingsPage() {
-  const { settings } = await fetchTenantApi<TenantSettingsResponse>('/api/settings');
+  const [{ settings }, slugData] = await Promise.all([
+    fetchTenantApi<TenantSettingsResponse>('/api/settings'),
+    fetchTenantApi<TenantSlugResponse>('/api/tenant/slug')
+  ]);
   const billingProfile = normalizeBillingProfile(settings);
 
   return (
@@ -19,6 +28,16 @@ export default async function SettingsPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Tenant preferences</h1>
         <p className="text-muted-foreground">Configure branding, billing details, and future notification options.</p>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Public slug</CardTitle>
+          <CardDescription>Customize how your tenant appears in landing page URLs.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TenantSlugForm initialSlug={slugData.slug} publicSlug={slugData.publicSlug} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Branding</CardTitle>

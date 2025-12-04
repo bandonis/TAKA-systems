@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { TENANT_STATUS } from '@/lib/prisma/enums';
 import {
   getContactFormConfig,
   parseBlockContent,
@@ -40,13 +41,13 @@ type ContactEventOption = {
 
 export default async function PublicLandingPage({ params }: PublicLandingPageProps) {
   const { tenantSlug, landingSlug } = await params;
-  const tenantId = tenantSlug; // TODO: replace with real slug / custom domain lookup once available
   const prisma = getPrisma();
+  const normalizedTenantSlug = tenantSlug.trim();
 
   const tenant = await prisma.tenant.findFirst({
     where: {
-      id: tenantId,
-      status: 'ACTIVE'
+      status: TENANT_STATUS.ACTIVE,
+      OR: [{ slug: normalizedTenantSlug }, { id: normalizedTenantSlug }]
     },
     select: {
       id: true,
