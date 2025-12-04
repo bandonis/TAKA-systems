@@ -14,6 +14,24 @@ type TenantNameResponse = {
   name: string;
 };
 
+function isTenantNameResponse(value: unknown): value is TenantNameResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'name' in value &&
+    typeof (value as { name?: unknown }).name === 'string'
+  );
+}
+
+function extractApiError(value: unknown) {
+  return typeof value === 'object' &&
+    value !== null &&
+    'error' in value &&
+    typeof (value as { error?: unknown }).error === 'string'
+    ? ((value as { error?: string }).error ?? undefined)
+    : undefined;
+}
+
 export function TenantNameForm({ initialName }: TenantNameFormProps) {
   const [value, setValue] = useState(initialName);
   const [savedValue, setSavedValue] = useState(initialName);
@@ -41,22 +59,15 @@ export function TenantNameForm({ initialName }: TenantNameFormProps) {
           body: JSON.stringify({ name: value })
         });
 
-        const payload = (await response.json().catch(() => null)) as TenantNameResponse | { error?: string } | null;
+        const data = (await response.json().catch(() => null)) as TenantNameResponse | { error?: string } | null;
 
-        const apiError =
-          typeof payload === 'object' &&
-          payload !== null &&
-          'error' in payload &&
-          typeof (payload as { error?: unknown }).error === 'string'
-            ? ((payload as { error?: string }).error ?? undefined)
-            : undefined;
-
-        if (!response.ok || !payload || typeof (payload as TenantNameResponse).name !== 'string') {
+        if (!response.ok || !isTenantNameResponse(data)) {
+          const apiError = extractApiError(data);
           throw new Error(apiError ?? 'Unable to update team name.');
         }
 
-        setSavedValue(payload.name);
-        setValue(payload.name);
+        setSavedValue(data.name);
+        setValue(data.name);
         setMessage('Team name updated.');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unable to update team name.');
