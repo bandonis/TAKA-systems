@@ -3,6 +3,7 @@ import { fetchTenantApi } from '@/lib/tenant/api';
 import { normalizeBillingProfile } from '@/lib/tenant-settings/billing-profile';
 import type { BillingProfileFormValues } from './_components/billing-profile-form';
 import { BillingProfileForm } from './_components/billing-profile-form';
+import { TenantNameForm } from './_components/tenant-name-form';
 import { TenantSlugForm } from './_components/tenant-slug-form';
 
 type TenantSettingsResponse = {
@@ -14,10 +15,15 @@ type TenantSlugResponse = {
   publicSlug: string;
 };
 
+type TenantProfileResponse = {
+  name: string;
+};
+
 export default async function SettingsPage() {
-  const [{ settings }, slugData] = await Promise.all([
+  const [{ settings }, slugData, profile] = await Promise.all([
     fetchTenantApi<TenantSettingsResponse>('/api/settings'),
-    fetchTenantApi<TenantSlugResponse>('/api/tenant/slug')
+    fetchTenantApi<TenantSlugResponse>('/api/tenant/slug'),
+    fetchTenantApi<TenantProfileResponse>('/api/tenant/name')
   ]);
   const billingProfile = normalizeBillingProfile(settings);
 
@@ -30,8 +36,18 @@ export default async function SettingsPage() {
       </div>
       <Card>
         <CardHeader>
+          <CardTitle>Team name</CardTitle>
+          <CardDescription>Shown to participants across emails, invoices, and payment receipts.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TenantNameForm initialName={profile.name} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Public slug</CardTitle>
-          <CardDescription>Customize how your tenant appears in landing page URLs.</CardDescription>
+          <CardDescription>Used inside landing page URLs like /your-slug/go/landing-name.</CardDescription>
         </CardHeader>
         <CardContent>
           <TenantSlugForm initialSlug={slugData.slug} publicSlug={slugData.publicSlug} />

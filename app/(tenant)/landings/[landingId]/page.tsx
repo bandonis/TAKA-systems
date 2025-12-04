@@ -8,10 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { BLOCK_VARIANTS, getContactFormConfig, isContactFormBlock, resolveVariantIdForBlock } from '@/lib/landings/blocks';
 import { getLandingPublicPath } from '@/lib/landings/urls';
-import { getTenantPublicSlug } from '@/lib/tenant/urls';
+import { getTenantPublicSlug, type TenantSlugSource } from '@/lib/tenant/urls';
 
 import { AddBlockControl } from './_components/add-block-control';
 import { BlockCard } from './_components/block-card';
+import { LandingDeleteButton } from '../_components/landing-delete-button';
 import { LandingHeaderForm } from './_components/landing-header-form';
 
 type EventOption = {
@@ -28,8 +29,9 @@ const blockOptionsForAdd = BLOCK_VARIANTS.map((variant) => ({
 
 export default async function LandingDetailPage({ params }: { params: Promise<{ landingId: string }> }) {
   const { landingId } = await params;
-  const { landing, tenantId, tenantSlug } = await getLandingData(landingId);
-  const events = await getUpcomingEvents(tenantId);
+  const { landing, tenant } = await getLandingData(landingId);
+  const tenantSlug = getTenantPublicSlug(tenant);
+  const events = await getUpcomingEvents(tenant.id);
   const publicPath = getLandingPublicPath({ tenantSlug, landingSlug: landing.slug });
 
   return (
@@ -54,18 +56,25 @@ export default async function LandingDetailPage({ params }: { params: Promise<{ 
             <CardTitle>Header</CardTitle>
             <CardDescription>Control the public title, slug, and publish status.</CardDescription>
           </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href={publicPath} target="_blank" rel="noreferrer">
-              <ExternalLink className="mr-1.5 h-4 w-4" />
-              Preview
-            </Link>
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <Button asChild variant="outline" size="sm">
+                <Link href={publicPath} target="_blank" rel="noreferrer">
+                  <ExternalLink className="mr-1.5 h-4 w-4" />
+                  Preview
+                </Link>
+              </Button>
+              <LandingDeleteButton
+                landingId={landing.id}
+                landingTitle={landing.title}
+                redirectTo="/landings"
+                className="flex-shrink-0"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <LandingHeaderForm landingId={landing.id} title={landing.title} slug={landing.slug} status={landing.status} />
-          <p className="mt-4 text-xs text-muted-foreground">
-            Public URL: <code className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{publicPath}</code>
-          </p>
         </CardContent>
       </Card>
 
@@ -125,16 +134,7 @@ async function getLandingData(landingId: string) {
   const tenantId = session.tenantId;
   const prisma = getPrisma();
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { id: true, slug: true }
-  });
-
-  if (!tenant) {
-    notFound();
-  }
-
-  const landing = await prisma.landingPage.findFirst({
+  const landingRecord = await prisma.landingPage.findFirst({
     where: { id: landingId, tenantId },
     select: {
       id: true,
@@ -152,15 +152,20 @@ async function getLandingData(landingId: string) {
           updatedAt: true,
           content: true
         }
+      },
+      tenant: {
+        select: { id: true, slug: true }
       }
     }
   });
 
-  if (!landing) {
+  if (!landingRecord || !landingRecord.tenant) {
     notFound();
   }
 
-  return { landing, tenantId, tenantSlug: getTenantPublicSlug(tenant) };
+  const { tenant, ...landing } = landingRecord;
+
+  return { landing, tenant };
 }
 
 async function getUpcomingEvents(tenantId: string): Promise<EventOption[]> {

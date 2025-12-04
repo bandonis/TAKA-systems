@@ -90,7 +90,9 @@ export function LandingHeaderForm({ landingId, title, slug, status }: LandingHea
             autoComplete="off"
             required
           />
-          <p className="text-xs text-muted-foreground">Lowercase letters, numbers, and hyphens only.</p>
+          <p className="text-xs text-muted-foreground">
+            Used at the end of your public URL, for example: /your-team-slug/go/this-slug. Changing it will change this page&apos;s URL.
+          </p>
           {state.fieldErrors?.slug && <p className="text-sm text-destructive">{state.fieldErrors.slug}</p>}
         </div>
       </div>

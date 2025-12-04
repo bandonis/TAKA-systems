@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 
 import { getPrisma } from '@/lib/db';
 import { getTenantPublicSlug } from '@/lib/tenant/urls';
-import { withTenantRoute, ConflictError, NotFoundError } from '@/lib/tenants';
+import { withTenantRoute, NotFoundError } from '@/lib/tenants';
 
 export const runtime = "nodejs";
 
@@ -60,7 +60,10 @@ export const PATCH = withTenantRoute(
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictError('Slug already in use. Choose a different one.');
+        return NextResponse.json(
+          { error: { code: 'SLUG_TAKEN', message: 'This name is already taken. Please choose another.' } },
+          { status: 409 }
+        );
       }
       throw error;
     }

@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { buildContactFormContent, getBlockVariantDefinition } from '@/lib/landings/blocks';
 
 import { CreateLandingButton } from './_components/create-landing-button';
+import { LandingDeleteButton } from './_components/landing-delete-button';
 
 const LANDING_STATUS_META: Record<LandingStatus, { label: string; variant: 'success' | 'outline' }> = {
   PUBLISHED: { label: 'Published', variant: 'success' },
@@ -75,7 +76,7 @@ export default async function LandingsPage() {
                 <tbody className="divide-y divide-border">
                   {landings.map((landing) => (
                     <tr key={landing.id}>
-                      <td className="py-3">
+                      <td className="py-3 text-right">
                         <p className="font-medium text-foreground">{landing.title}</p>
                         <p className="text-xs text-muted-foreground">ID · {landing.id.slice(0, 6)}…</p>
                       </td>
@@ -92,10 +93,18 @@ export default async function LandingsPage() {
                           year: 'numeric'
                         })}
                       </td>
-                      <td className="py-3 text-right">
-                        <Button size="sm" asChild>
-                          <Link href={`/landings/${landing.id}`}>Edit</Link>
-                        </Button>
+                      <td className="py-3">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Button size="sm" asChild>
+                            <Link href={`/landings/${landing.id}`}>Edit</Link>
+                          </Button>
+                          <LandingDeleteButton
+                            landingId={landing.id}
+                            landingTitle={landing.title}
+                            buttonLabel="Delete"
+                            className="flex-shrink-0"
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}
