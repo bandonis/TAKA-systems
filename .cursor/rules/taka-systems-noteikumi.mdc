@@ -190,8 +190,63 @@ To avoid repeating past issues, the agent must:
 - For typing:
   - Prefer inferred types in Prisma queries and `$transaction` callbacks instead of manual `PrismaClient` annotations.
   - Avoid converting type-only imports into value usage.
+
+
+11. TYPE-SAFETY & API CONTRACT RULES (NEW — REQUIRED)
+
+To prevent recurring issues with union types, Zod parsing, Prisma JSON constraints, and Vercel strict mode, the agent must respect the following rules:
+⸻
+
+11.1 API Response Contract RulesWhen an API route returns a union such as:{ name: string } | { error?: string }the agent must::heavy_check_mark: Always create a type guardfunction isTenantNameResponse(x: unknown): x is TenantNameResponse {
+  return typeof x === "object" && x !== null && "name" in x;
+}:x: Never directly access payload.name or payload.errorunless a type guard was applied.:heavy_check_mark: Always validate JSON resultsconst body = await response.json();if (!response.ok || !isTenantNameResponse(body)) {
+  const apiError =
+    (typeof body === "object" && body && "error" in body
+      ? (body as any).error
+      : undefined) ?? "Unknown error";
+  throw new Error(apiError);
+}Reason:
+This prevents ~7 different TypeScript union errors we already experienced.
+⸻
+
+11.2 Prisma JSON Fields RulesThe agent must::heavy_check_mark: Always import Prisma as a value when accessing JsonNullimport { Prisma } from "@prisma/client";:heavy_check_mark: Always cast JSON fields explicitlyWhen Prisma expects:
+	•	Prisma.InputJsonValue
+	•	Prisma.JsonNullThe agent must NOT use raw null.Correct:content: (defaultContent ?? Prisma.JsonNull) as Prisma.InputJsonValueIncorrect:content: defaultContent
+content: nullReason:
+This prevents the repeated Vercel build failures with:Type 'null' is not assignable to type 'JsonNull | InputJsonValue'.
+⸻
+
+11.3 Zod Schema RulesThe agent must::heavy_check_mark: Avoid using non-existing keys in Zod refinementsExample of forbidden code:status: z.nativeEnum(LandingStatus, {
+  errorMap: () => ({ message: "Invalid" })
+});If a custom error message is needed, use:z.nativeEnum(LandingStatus).refine(...)Reason:
+This prevents errors like:Object literal may only specify known properties, and 'errorMap' does not exist…
+⸻
+
+11.4 Never use import type when Prisma values are neededForbidden:import type { Prisma } from "@prisma/client"; // later using Prisma.JsonNull :x:Correct:import { Prisma } from "@prisma/client"; // allows JsonNull, InputJsonValueReason:
+This eliminates the Vercel build error:'Prisma' cannot be used as a value because it was imported using 'import type'.
+⸻
+
+11.5 Mandatory local verification before writing patchesBefore generating a patch, the agent must ensure the fix would pass:
+	•	Vercel strict type checking
+	•	Prisma input compatibility
+	•	Next.js app-router constraintsMeaning:
+The agent must examine the types, not guess.
+⸻
+
+11.6 Never assume old data is valid after schema changesWhen new fields (like Tenant.slug) are introduced:
+	•	The agent must NOT assume values exist
+	•	Must safely handle null
+	•	Must derive fallbacks (tenant.id) via helpers like getTenantPublicSlug
+  ⸻
+  
+  11.7 When modifying public URL logicThe agent must:
+
+    Use only the helper getTenantPublicSlug.
+    Avoid duplicating URL logic across components.
+    Ensure legacy /tenantId/go/... URLs still work.
+
 # ==========================
-# 11. COMMAND EXECUTION RULES
+# 12. COMMAND EXECUTION RULES
 # ==========================
 
 # The agent MUST NOT run destructive or heavy commands inside the Cursor sandbox.
