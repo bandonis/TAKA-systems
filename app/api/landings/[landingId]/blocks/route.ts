@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 import { getPrisma } from '@/lib/db';
 import { BLOCK_VARIANT_IDS, getBlockVariantDefinition } from '@/lib/landings/blocks';
@@ -49,7 +50,7 @@ export const POST = withTenantRoute<{ landingId: string }>(
         landingId,
         tenantId: tenant.tenantId,
         blockType: definition.blockType,
-        content: definition.defaultContent,
+        content: definition.defaultContent as Prisma.InputJsonValue,
         orderIndex: nextOrderIndex,
         visibleMobile: true,
         visibleDesktop: true

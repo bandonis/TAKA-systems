@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 import { getPrisma } from '@/lib/db';
 import { buildContactFormContent, isContactFormBlock } from '@/lib/landings/blocks';
@@ -88,7 +89,8 @@ export const PATCH = withTenantRoute<{ landingId: string; blockId: string }>(
     await prisma.landingBlock.update({
       where: { id: block.id },
       data: {
-        content: buildContactFormContent(block, { allowedEventIds: uniqueEventIds })
+        content: (buildContactFormContent(block, { allowedEventIds: uniqueEventIds }) ??
+          Prisma.JsonNull) as Prisma.InputJsonValue
       }
     });
 
