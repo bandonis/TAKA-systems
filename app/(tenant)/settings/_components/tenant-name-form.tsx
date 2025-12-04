@@ -43,8 +43,15 @@ export function TenantNameForm({ initialName }: TenantNameFormProps) {
 
         const payload = (await response.json().catch(() => null)) as TenantNameResponse | { error?: string } | null;
 
+        const apiError =
+          typeof payload === 'object' &&
+          payload !== null &&
+          'error' in payload &&
+          typeof (payload as { error?: unknown }).error === 'string'
+            ? ((payload as { error?: string }).error ?? undefined)
+            : undefined;
+
         if (!response.ok || !payload || typeof (payload as TenantNameResponse).name !== 'string') {
-          const apiError = payload && typeof payload === 'object' && typeof payload.error === 'string' ? payload.error : null;
           throw new Error(apiError ?? 'Unable to update team name.');
         }
 
