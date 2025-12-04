@@ -2,7 +2,8 @@ import { randomBytes } from 'crypto';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import type { LandingBlock, LandingStatus, Prisma } from '@prisma/client';
+import type { LandingBlock, LandingStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { getSession } from '@/lib/auth/cookies';
 import { getPrisma } from '@/lib/db';
 import { Badge } from '@/components/ui/badge';
@@ -158,7 +159,7 @@ async function createLandingAction() {
         landingId: createdLanding.id,
         tenantId,
         blockType: heroDefinition.blockType,
-        content: heroDefinition.defaultContent as Prisma.InputJsonValue,
+        content: (heroDefinition.defaultContent ?? Prisma.JsonNull) as Prisma.InputJsonValue,
         orderIndex: 0,
         visibleMobile: true,
         visibleDesktop: true

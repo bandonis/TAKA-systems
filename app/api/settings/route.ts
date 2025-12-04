@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { getPrisma } from '@/lib/db';
 import { withTenantRoute, NotFoundError } from '@/lib/tenants';

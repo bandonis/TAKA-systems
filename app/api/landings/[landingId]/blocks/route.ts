@@ -50,7 +50,7 @@ export const POST = withTenantRoute<{ landingId: string }>(
         landingId,
         tenantId: tenant.tenantId,
         blockType: definition.blockType,
-        content: definition.defaultContent as Prisma.InputJsonValue,
+        content: (definition.defaultContent ?? Prisma.JsonNull) as Prisma.InputJsonValue,
         orderIndex: nextOrderIndex,
         visibleMobile: true,
         visibleDesktop: true
