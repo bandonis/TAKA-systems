@@ -25,7 +25,6 @@ type BlockCardProps = {
   visibleMobile: boolean;
   visibleDesktop: boolean;
   isContactForm: boolean;
-  contactWarning: boolean;
   contactConfig: { allowedEventIds: string[] };
   events: EventOption[];
 };
@@ -44,9 +43,11 @@ export function BlockCard(props: BlockCardProps) {
     setVisibilityState({ mobile: props.visibleMobile, desktop: props.visibleDesktop });
   }, [props.visibleMobile, props.visibleDesktop]);
 
-  const [contactSelection, setContactSelection] = useState(props.contactConfig.allowedEventIds);
+  const [contactSelection, setContactSelection] = useState<string[]>(() =>
+    dedupeEventIds(props.contactConfig.allowedEventIds)
+  );
   useEffect(() => {
-    setContactSelection(props.contactConfig.allowedEventIds);
+    setContactSelection(dedupeEventIds(props.contactConfig.allowedEventIds));
   }, [props.contactConfig.allowedEventIds]);
 
   const mutate = (init: RequestInit, options?: { onError?: () => void }) => {
@@ -111,21 +112,28 @@ export function BlockCard(props: BlockCardProps) {
     });
   };
 
-  const handleContactSelection = (eventId: string) => {
+  const handleContactSelection = (eventId: string, isChecked: boolean) => {
     const previous = contactSelection;
-    const nextSelection = contactSelection.includes(eventId)
-      ? contactSelection.filter((id) => id !== eventId)
-      : [...contactSelection, eventId];
+    const nextSet = new Set(previous);
+    if (isChecked) {
+      nextSet.add(eventId);
+    } else {
+      nextSet.delete(eventId);
+    }
+    const nextSelection = Array.from(nextSet);
     setContactSelection(nextSelection);
-    mutate({
-      method: 'PATCH',
-      body: JSON.stringify({ action: 'contactConfig', allowedEventIds: nextSelection })
-    }, {
-      onError: () => setContactSelection(previous)
-    });
+    mutate(
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'contactConfig', allowedEventIds: nextSelection })
+      },
+      {
+        onError: () => setContactSelection(previous)
+      }
+    );
   };
 
-  const contactEmptyWarning = props.contactWarning || (props.isContactForm && contactSelection.length === 0);
+  const contactEmptyWarning = props.isContactForm && contactSelection.length === 0;
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card/30 p-4">
@@ -185,24 +193,28 @@ export function BlockCard(props: BlockCardProps) {
           {props.events.length === 0 ? (
             <p className="text-sm text-muted-foreground">No upcoming events available. Create one to enable this form.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {props.events.map((event) => {
-                const isSelected = contactSelection.includes(event.id);
+            <div className="space-y-2">
+              {props.events.map((eventOption) => {
+                const isSelected = contactSelection.includes(eventOption.id);
                 return (
-                  <button
-                    key={event.id}
-                    type="button"
-                    onClick={() => handleContactSelection(event.id)}
-                    disabled={isPending}
-                    className={`flex flex-col rounded-md border px-3 py-2 text-left text-xs transition ${
-                      isSelected
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-background text-muted-foreground hover:border-primary/60'
+                  <label
+                    key={eventOption.id}
+                    className={`flex w-full items-start gap-3 rounded-md border p-3 text-left transition ${
+                      isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/60'
                     }`}
                   >
-                    <span className="font-semibold text-foreground">{event.title}</span>
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{event.dateLabel}</span>
-                  </button>
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                      checked={isSelected}
+                      onChange={(event) => handleContactSelection(eventOption.id, event.target.checked)}
+                      disabled={isPending}
+                    />
+                    <span className="flex flex-col">
+                      <span className="text-sm font-semibold text-foreground">{eventOption.title}</span>
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">{eventOption.dateLabel}</span>
+                    </span>
+                  </label>
                 );
               })}
             </div>
@@ -216,6 +228,16 @@ export function BlockCard(props: BlockCardProps) {
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
+}
+function dedupeEventIds(ids: string[]) {
+  const seen = new Set<string>();
+  return ids.filter((id) => {
+    if (seen.has(id)) {
+      return false;
+    }
+    seen.add(id);
+    return true;
+  });
 }
 
 function VisibilityToggle({ label, icon, active, disabled, onClick }: { label: string; icon: ReactNode; active: boolean; disabled: boolean; onClick: () => void }) {
