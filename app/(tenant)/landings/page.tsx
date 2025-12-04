@@ -127,12 +127,14 @@ async function createLandingAction() {
 
   const session = await getSession();
 
-  if (!session?.tenantId) {
+  const tenantId = session?.tenantId;
+
+  if (!tenantId) {
     redirect('/');
   }
 
   const prisma = getPrisma();
-  const slug = await generateLandingSlug(prisma, session.tenantId);
+  const slug = await generateLandingSlug(prisma, tenantId);
 
   const heroDefinition = getBlockVariantDefinition('hero');
   const contactDefinition = getBlockVariantDefinition('contactForm');
@@ -144,7 +146,7 @@ async function createLandingAction() {
   const landing = await prisma.$transaction(async (tx) => {
     const createdLanding = await tx.landingPage.create({
       data: {
-        tenantId: session.tenantId,
+        tenantId,
         title: 'New landing page',
         slug,
         status: 'DRAFT'
@@ -154,7 +156,7 @@ async function createLandingAction() {
     await tx.landingBlock.create({
       data: {
         landingId: createdLanding.id,
-        tenantId: session.tenantId,
+        tenantId,
         blockType: heroDefinition.blockType,
         content: heroDefinition.defaultContent,
         orderIndex: 0,
@@ -171,7 +173,7 @@ async function createLandingAction() {
     await tx.landingBlock.create({
       data: {
         landingId: createdLanding.id,
-        tenantId: session.tenantId,
+        tenantId,
         blockType: contactDefinition.blockType,
         content: contactContent,
         orderIndex: 1,
