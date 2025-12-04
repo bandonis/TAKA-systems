@@ -29,7 +29,8 @@ const updateLandingHeaderSchema = z.object({
     .transform((value) => value.trim().toLowerCase())
     .refine((value) => slugPattern.test(value), 'Use lowercase letters, numbers, and hyphens only.'),
   status: z.nativeEnum(LandingStatus, {
-    errorMap: () => ({ message: 'Select a valid status.' })
+    required_error: 'Select a valid status.',
+    invalid_type_error: 'Select a valid status.'
   })
 });
 
