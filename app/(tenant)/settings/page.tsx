@@ -55,7 +55,7 @@ export default async function SettingsPage() {
           <CardDescription>Shown to participants across emails, invoices, and payment receipts.</CardDescription>
         </CardHeader>
         <CardContent>
-          <TenantNameForm initialName={profile.name} />
+          <TenantNameForm initialName={tenant.name} />
         </CardContent>
       </Card>
 
