@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { COUNTRY_OPTIONS } from '@/lib/constants/countries';
 import { BILLING_LEGAL_TYPE, type BillingLegalType } from '@/lib/prisma/enums';
 import type { BillingProfile } from '@/lib/tenant-settings/billing-profile';
+import { updateBillingProfile } from '../actions';
 
 export type BillingProfileFormValues = BillingProfile;
 
@@ -84,25 +85,17 @@ export function BillingProfileForm({ initialValues }: BillingProfileFormProps) {
       return;
     }
 
-    startTransition(async () => {
-      const res = await fetch('/api/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        const message = typeof data.error === 'string' ? data.error : 'Unable to save billing profile';
-        setError(message);
-        return;
-      }
-
-      const data = (await res.json()) as { settings: BillingProfileFormValues };
-      setSuccess('Billing profile saved');
-      setLegalType(data.settings.legalType);
-      setIsVatPayer(data.settings.isVatPayer);
-      setBillingCountry(data.settings.billingCountry ?? '');
+    startTransition(() => {
+      updateBillingProfile(payload)
+        .then((updated) => {
+          setSuccess('Billing profile saved');
+          setLegalType(updated.legalType);
+          setIsVatPayer(updated.isVatPayer);
+          setBillingCountry(updated.billingCountry ?? '');
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Unable to save billing profile');
+        });
     });
   }
 

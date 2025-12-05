@@ -1,31 +1,46 @@
+import { redirect } from 'next/navigation';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { fetchTenantApi } from '@/lib/tenant/api';
-import { normalizeBillingProfile } from '@/lib/tenant-settings/billing-profile';
+import { getSession } from '@/lib/auth/cookies';
+import { getPrisma } from '@/lib/db';
+import { getTenantPublicSlug } from '@/lib/tenant/urls';
+import { extractBillingProfileFromConfig } from '@/lib/tenant-settings/billing-profile';
 import type { BillingProfileFormValues } from './_components/billing-profile-form';
 import { BillingProfileForm } from './_components/billing-profile-form';
 import { TenantNameForm } from './_components/tenant-name-form';
 import { TenantSlugForm } from './_components/tenant-slug-form';
 
-type TenantSettingsResponse = {
-  settings: BillingProfileFormValues;
-};
-
-type TenantSlugResponse = {
-  slug: string | null;
-  publicSlug: string;
-};
-
-type TenantProfileResponse = {
-  name: string;
-};
-
 export default async function SettingsPage() {
-  const [{ settings }, slugData, profile] = await Promise.all([
-    fetchTenantApi<TenantSettingsResponse>('/api/settings'),
-    fetchTenantApi<TenantSlugResponse>('/api/tenant/slug'),
-    fetchTenantApi<TenantProfileResponse>('/api/tenant/name')
+  const session = await getSession();
+
+  if (!session?.tenantId) {
+    redirect('/');
+  }
+
+  const prisma = getPrisma();
+
+  const [tenant, settings] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: session.tenantId },
+      select: { id: true, name: true, slug: true }
+    }),
+    prisma.tenantSettings.findUnique({
+      where: { tenantId: session.tenantId },
+      select: { analyticsConfig: true }
+    })
   ]);
-  const billingProfile = normalizeBillingProfile(settings);
+
+  if (!tenant) {
+    redirect('/');
+  }
+
+  const billingProfile: BillingProfileFormValues = extractBillingProfileFromConfig(
+    settings?.analyticsConfig ?? {}
+  );
+  const slugData = {
+    slug: tenant.slug,
+    publicSlug: getTenantPublicSlug(tenant)
+  };
 
   return (
     <section className="space-y-6 pb-20 lg:pb-0">
