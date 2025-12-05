@@ -10,11 +10,9 @@ type TenantNameFormProps = {
   initialName: string;
 };
 
-type TenantNameResponse = {
-  name: string;
-};
+type TenantNameResponse = { name: string } | { error?: string };
 
-function isTenantNameResponse(value: unknown): value is TenantNameResponse {
+function isTenantNameSuccess(value: unknown): value is { name: string } {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -59,9 +57,9 @@ export function TenantNameForm({ initialName }: TenantNameFormProps) {
           body: JSON.stringify({ name: value })
         });
 
-        const data = (await response.json().catch(() => null)) as TenantNameResponse | { error?: string } | null;
+        const data = (await response.json().catch(() => null)) as TenantNameResponse | null;
 
-        if (!response.ok || !isTenantNameResponse(data)) {
+        if (!response.ok || !isTenantNameSuccess(data)) {
           const apiError = extractApiError(data);
           throw new Error(apiError ?? 'Unable to update team name.');
         }
@@ -111,4 +109,3 @@ export function TenantNameForm({ initialName }: TenantNameFormProps) {
     </form>
   );
 }
-

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { getSession } from '@/lib/auth/cookies';
 import { getPrisma } from '@/lib/db';
-import { withTenantRoute, NotFoundError } from '@/lib/tenants';
 
 export const runtime = "nodejs";
 
@@ -14,38 +14,56 @@ const nameSchema = z.object({
     .max(120, 'Team name must be 120 characters or fewer.')
 });
 
-export const GET = withTenantRoute(
-  async ({ tenant }) => {
-    const prisma = getPrisma();
-    const record = await prisma.tenant.findUnique({
-      where: { id: tenant.tenantId },
-      select: { name: true }
-    });
+function unauthorizedResponse() {
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+}
 
-    if (!record) {
-      throw new NotFoundError('Tenant not found');
-    }
+function tenantNotFoundResponse() {
+  return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+}
 
-    return NextResponse.json({ name: record.name });
-  },
-  { onError: 'Unable to load tenant name' }
-);
+export async function GET() {
+  const session = await getSession();
+  if (!session?.tenantId) {
+    return unauthorizedResponse();
+  }
 
-export const PATCH = withTenantRoute(
-  async ({ tenant, req }) => {
-    const prisma = getPrisma();
+  const prisma = getPrisma();
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.tenantId },
+    select: { name: true }
+  });
+
+  if (!tenant) {
+    return tenantNotFoundResponse();
+  }
+
+  return NextResponse.json({ name: tenant.name });
+}
+
+export async function PATCH(req: Request) {
+  const session = await getSession();
+  if (!session?.tenantId) {
+    return unauthorizedResponse();
+  }
+
+  let input: z.infer<typeof nameSchema>;
+  try {
     const data = await req.json();
-    const input = nameSchema.parse(data);
+    input = nameSchema.parse(data);
+  } catch (error) {
+    const message = error instanceof z.ZodError ? error.errors[0]?.message ?? 'Invalid input.' : 'Invalid input.';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenant.tenantId },
-      data: { name: input.name },
-      select: { name: true }
-    });
+  const prisma = getPrisma();
+  const updated = await prisma.tenant.update({
+    where: { id: session.tenantId },
+    data: { name: input.name },
+    select: { name: true }
+  });
 
-    return NextResponse.json({ name: updated.name });
-  },
-  { onError: 'Unable to update tenant name' }
-);
+  return NextResponse.json({ name: updated.name });
+}
 
 
