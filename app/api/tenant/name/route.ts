@@ -52,7 +52,10 @@ export async function PATCH(req: Request) {
     const data = await req.json();
     input = nameSchema.parse(data);
   } catch (error) {
-    const message = error instanceof z.ZodError ? error.errors[0]?.message ?? 'Invalid input.' : 'Invalid input.';
+    let message = 'Invalid input.';
+    if (error instanceof z.ZodError) {
+      message = error.issues[0]?.message ?? message;
+    }
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
