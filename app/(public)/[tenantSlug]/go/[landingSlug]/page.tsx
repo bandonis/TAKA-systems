@@ -335,6 +335,15 @@ function EventHighlightBlock({ content }: { content: BlockContent }) {
   );
 }
 
+function FallbackBlock({ blockType, content }: { blockType: LandingBlockType; content: BlockContent }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold text-muted-foreground">{blockType}</p>
+      <pre className="overflow-auto rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">{JSON.stringify(content, null, 2)}</pre>
+    </div>
+  );
+}
+
 
 function getVisibilityClass(visibleMobile: boolean, visibleDesktop: boolean) {
   if (!visibleMobile && !visibleDesktop) {
