@@ -156,9 +156,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unable to start checkout for this participant' }, { status: 400 });
   }
 
+  if (
+    participantForCheckout.ticketCount == null ||
+    participantForCheckout.ticketCount < 1
+  ) {
+    return NextResponse.json({ error: 'Invalid ticket count' }, { status: 400 });
+  }
+
+  const checkoutParticipant = {
+    ...participantForCheckout,
+    ticketCount: participantForCheckout.ticketCount
+  };
+
   const session = await createCheckoutSessionForParticipant({
     tenantId,
-    participant: participantForCheckout,
+    participant: checkoutParticipant,
     currency,
     successPath,
     cancelPath
