@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps } from 'react';
+import type { ChangeEvent, ComponentProps } from 'react';
 import { useMemo, useState } from 'react';
 
 import type { ContactFormCopy } from '@/lib/contact/copy';
@@ -224,7 +224,7 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           label={copy.nameLabel}
           placeholder={copy.namePlaceholder}
           value={form.name}
-          onChange={(value) => setForm((prev) => ({ ...prev, name: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
           onBlur={triggerAutosave}
         />
         <InputField
@@ -232,7 +232,7 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           placeholder={copy.emailPlaceholder}
           type="email"
           value={form.email}
-          onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
           onBlur={triggerAutosave}
           required
         />
@@ -240,7 +240,7 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           label={copy.phoneLabel}
           placeholder={copy.phonePlaceholder}
           value={form.phone}
-          onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
           onBlur={triggerAutosave}
         />
         {events.length === 0 ? (
@@ -264,8 +264,8 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
             type="number"
             min={1}
             value={String(form.ticketCount)}
-            onChange={(value) => {
-              const parsed = Number(value) || 1;
+            onChange={(event) => {
+              const parsed = Number(event.target.value) || 1;
               setForm((prev) => ({ ...prev, ticketCount: parsed }));
               void triggerAutosave();
             }}
@@ -282,7 +282,7 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           label={copy.commentLabel}
           placeholder={copy.commentPlaceholder}
           value={form.message}
-          onChange={(value) => setForm((prev) => ({ ...prev, message: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
           onBlur={triggerAutosave}
         />
         <label className="flex items-start gap-2 text-xs text-white/80">
@@ -431,7 +431,7 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           placeholder={copy.emailPlaceholder}
           type="email"
           value={form.email}
-          onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
           onBlur={triggerAutosave}
           required
         />
@@ -439,21 +439,21 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           label={copy.phoneLabel}
           placeholder={copy.phonePlaceholder}
           value={form.phone}
-          onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
           onBlur={triggerAutosave}
         />
         <InputField
           label={copy.companyNameLabel}
           placeholder="Company or team name"
           value={form.companyName}
-          onChange={(value) => setForm((prev) => ({ ...prev, companyName: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, companyName: event.target.value }))}
           onBlur={triggerAutosave}
         />
         <InputField
           label={copy.contactPersonLabel}
           placeholder="Full name"
           value={form.companyPerson}
-          onChange={(value) => setForm((prev) => ({ ...prev, companyPerson: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, companyPerson: event.target.value }))}
           onBlur={triggerAutosave}
         />
         {eventTypes.length === 0 ? (
@@ -476,21 +476,23 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           type="number"
           min={1}
           value={String(form.participantEstimate ?? '')}
-          onChange={(value) => setForm((prev) => ({ ...prev, participantEstimate: Number(value) || 0 }))}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, participantEstimate: Number(event.target.value) || 0 }))
+          }
           onBlur={triggerAutosave}
         />
         <InputField
           label={copy.preferredDateLabel}
           placeholder="e.g. May 10 or any Friday"
           value={form.preferredDate}
-          onChange={(value) => setForm((prev) => ({ ...prev, preferredDate: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, preferredDate: event.target.value }))}
           onBlur={triggerAutosave}
         />
         <TextareaField
           label={copy.commentLabel}
           placeholder={copy.commentPlaceholder}
           value={form.message}
-          onChange={(value) => setForm((prev) => ({ ...prev, message: value }))}
+          onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
           onBlur={triggerAutosave}
         />
         <label className="flex items-start gap-2 text-xs text-white/80">
