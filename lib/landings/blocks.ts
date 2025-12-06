@@ -191,16 +191,29 @@ function normalizeTestimonials(value: unknown): ContactFormTestimonial[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  const testimonials = value.map((item, index) => {
+  const testimonials: ContactFormTestimonial[] = [];
+  let index = 0;
+
+  for (const item of value) {
     if (!isPlainObject(item) || typeof item.quote !== 'string' || typeof item.author !== 'string') {
-      return null;
+      index += 1;
+      continue;
     }
+
     const ratingValue = typeof item.rating === 'number' ? item.rating : undefined;
     const idValue = typeof item.id === 'string' && item.id.length > 0 ? item.id : `testimonial-${index}`;
-    return { id: idValue, author: item.author, quote: item.quote, rating: ratingValue };
-  });
 
-  return testimonials.filter((testimonial): testimonial is ContactFormTestimonial => testimonial !== null);
+    testimonials.push({
+      id: idValue,
+      author: item.author,
+      quote: item.quote,
+      rating: ratingValue
+    });
+
+    index += 1;
+  }
+
+  return testimonials;
 }
 
 export function getContactFormConfig(block: Pick<LandingBlock, 'content'>): ContactFormConfig {
