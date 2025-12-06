@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
 
 import { getPrisma } from '@/lib/db';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { TENANT_STATUS } from '@/lib/prisma/enums';
+import { Button } from '@/components/ui/button';
 import {
   getContactFormConfig,
   isContactFormBlock,
@@ -16,6 +16,7 @@ import {
 import { buildContactResources, type ContactResources } from '@/lib/contact/resources';
 import type { LandingBlockType, Prisma } from '@prisma/client';
 import { ContactFormBlock } from './_components/contact-form-block';
+import { HeaderNav } from './_components/header-nav';
 
 export const runtime = "nodejs";
 
@@ -37,8 +38,25 @@ type LandingBlockRecord = {
 const SECTION_VARIANTS: Record<string, string> = {
   hero: 'border-none bg-transparent p-0',
   contactForm: 'border-none bg-transparent p-0',
-  default: 'rounded-3xl border border-border/60 bg-background/60 p-6 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.6)] backdrop-blur'
+  default:
+    'rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_45px_120px_-60px_rgba(6,78,59,0.8)] backdrop-blur'
 };
+
+const SECTION_ANCHORS: Partial<Record<BlockVariantId, string>> = {
+  hero: 'hero',
+  textImage: 'journey',
+  gallery: 'gallery',
+  faq: 'faq',
+  contactForm: 'contact'
+};
+
+const NAV_BLUEPRINT: Array<{ anchor: string; label: string }> = [
+  { anchor: 'hero', label: 'Home' },
+  { anchor: 'journey', label: 'Journey' },
+  { anchor: 'gallery', label: 'Gallery' },
+  { anchor: 'faq', label: 'FAQ' },
+  { anchor: 'contact', label: 'Contact' }
+];
 
 export default async function PublicLandingPage({ params }: PublicLandingPageProps) {
   const { tenantSlug, landingSlug } = await params;
@@ -115,31 +133,49 @@ export default async function PublicLandingPage({ params }: PublicLandingPagePro
 
   const isDraft = landing.status !== 'PUBLISHED';
 
-  return (
-    <main className="min-h-screen bg-neutral-950 text-foreground">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.25),_transparent_55%)]" aria-hidden />
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
-        {isDraft ? (
-          <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 text-sm text-amber-900 shadow">
-            This landing page is currently in <span className="font-semibold">Draft</span>. Publish it in the admin panel to
-            share it with participants.
-          </div>
-        ) : null}
-        <header className="space-y-3 text-center">
-          <p className="text-xs uppercase tracking-[0.45em] text-emerald-200/80">{tenant.name}</p>
-          <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">{landing.title}</h1>
-        </header>
+  const availableAnchors = new Set<string>();
+  for (const block of blocks) {
+    const variantId = resolveVariantIdForBlock(block);
+    if (variantId) {
+      const anchor = SECTION_ANCHORS[variantId];
+      if (anchor) {
+        availableAnchors.add(anchor);
+      }
+    }
+  }
 
+  const navItems = NAV_BLUEPRINT.filter((item) => availableAnchors.has(item.anchor)).map((item) => ({
+    label: item.label,
+    href: `#${item.anchor}`
+  }));
+
+  return (
+    <main className="min-h-screen bg-slate-950 text-white">
+      <div className="relative isolate">
+        <div
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.25),_transparent_60%)]"
+          aria-hidden
+        />
+        <HeaderNav tenantName={tenant.name} navItems={navItems} ctaHref="#contact" homeHref="#hero" />
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-20 pt-28 sm:px-6 lg:px-8">
+          {isDraft ? (
+            <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 text-sm text-amber-900 shadow">
+              This landing page is currently in <span className="font-semibold">Draft</span>. Publish it in the admin panel to
+              share it with participants.
+            </div>
+          ) : null}
         {blocks.map((block) => {
           const variantId = resolveVariantIdForBlock(block);
           const content = parseBlockContent(block.content);
-          const variantKey = variantId ?? 'default';
-          const sectionClass = SECTION_VARIANTS[variantKey] ?? SECTION_VARIANTS.default;
+            const variantKey = variantId ?? 'default';
+            const sectionClass = SECTION_VARIANTS[variantKey] ?? SECTION_VARIANTS.default;
+            const sectionId = variantId ? SECTION_ANCHORS[variantId] : undefined;
 
           return (
             <section
               key={block.id}
-              className={cn(sectionClass, getVisibilityClass(block.visibleMobile, block.visibleDesktop))}
+                id={sectionId}
+                className={cn(sectionClass, getVisibilityClass(block.visibleMobile, block.visibleDesktop))}
             >
               {renderLandingBlock({
                 block,
@@ -147,11 +183,12 @@ export default async function PublicLandingPage({ params }: PublicLandingPagePro
                 content,
                 tenantName: tenant.name,
                 landingTitle: landing.title,
-                contactResources
+                  contactResources
               })}
             </section>
           );
         })}
+        </div>
       </div>
     </main>
   );
@@ -205,28 +242,41 @@ function HeroBlock({ content, tenantName, landingTitle }: { content: BlockConten
   const subheading = safeString(content.subheading);
   const ctaLabel = safeString(content.ctaLabel, 'Get in touch');
   const ctaHref = safeString(content.ctaHref, '#contact');
+  const secondaryCtaLabel = safeString(content.secondaryCtaLabel, 'Contact us');
+  const backgroundSource = safeString(content.backgroundImage) || safeString(content.imageUrl);
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-600 px-6 py-16 text-white shadow-2xl">
-      <div className="absolute inset-0 opacity-30 blur-2xl [background-image:radial-gradient(circle,_#34d39940,_transparent_45%)]" />
-      <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-        <p className="text-xs uppercase tracking-[0.5em] text-emerald-100/80">{tenantName}</p>
-        <div className="space-y-4">
-          <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">{heading}</h2>
-          {subheading ? <p className="text-base text-emerald-50/90 sm:text-lg">{subheading}</p> : null}
-        </div>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button asChild size="lg" className="bg-white text-emerald-900 hover:bg-white/90">
-            <a href={ctaHref}>{ctaLabel}</a>
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="border-white/40 text-white hover:bg-white/10"
-            asChild
-          >
-            <a href="#contact">Contact us</a>
-          </Button>
+    <div className="relative isolate overflow-hidden rounded-[40px] border border-white/10 shadow-2xl">
+      {backgroundSource ? (
+        <img
+          src={backgroundSource}
+          alt={heading || 'Landing hero'}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-700" aria-hidden />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-emerald-950/60 to-slate-950/70" />
+      <div className="relative z-10 px-6 py-20 text-center sm:px-10 sm:py-28">
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-6">
+          <p className="text-xs uppercase tracking-[0.5em] text-emerald-200/90">{tenantName}</p>
+          <div className="space-y-4">
+            <h2 className="text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl">{heading}</h2>
+            {subheading ? <p className="text-base text-emerald-100/80 sm:text-lg">{subheading}</p> : null}
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button asChild size="lg" className="rounded-full bg-white text-emerald-900 hover:bg-white/90">
+              <a href={ctaHref}>{ctaLabel}</a>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="rounded-full border-white/60 text-white hover:bg-white/10"
+              asChild
+            >
+              <a href="#contact">{secondaryCtaLabel}</a>
+            </Button>
+          </div>
         </div>
       </div>
     </div>

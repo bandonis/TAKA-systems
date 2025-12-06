@@ -40,19 +40,21 @@ export function ContactFormBlock(props: ContactFormBlockProps) {
   return (
     <section
       id="contact"
-      className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-900/70 via-emerald-900/80 to-slate-900/70 p-6 text-white shadow-[0_30px_80px_-40px_rgba(6,78,59,0.8)] lg:p-10"
+      className="relative isolate rounded-[40px] border border-emerald-500/15 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800 px-4 py-10 text-white shadow-[0_40px_120px_-60px_rgba(6,78,59,0.9)] sm:px-6 lg:px-10"
     >
-      <div className="mb-8 flex flex-col gap-2 text-sm uppercase tracking-[0.45em] text-emerald-100/70">
-        <span>Get in touch</span>
-        <div className="h-px w-12 bg-emerald-300/60" />
-      </div>
-      <div className="grid gap-10 lg:grid-cols-[minmax(260px,320px),minmax(0,1fr)]">
-        <TestimonialsPanel testimonials={props.testimonials} />
-        {mode === 'b2c' ? (
-          <B2CForm {...props} mode={mode} onModeChange={setMode} />
-        ) : (
-          <B2BForm {...props} mode={mode} onModeChange={setMode} />
-        )}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-20 [background-image:url('https://images.unsplash.com/photo-1482192597420-4817fdd7e8b0?auto=format&fit=crop&w=1600&q=60')]"
+        aria-hidden
+      />
+      <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(260px,320px),minmax(0,1fr)]">
+      <TestimonialsPanel testimonials={props.testimonials} />
+        <div className="rounded-3xl bg-white/95 p-6 text-emerald-950 shadow-2xl sm:p-8">
+      {mode === 'b2c' ? (
+        <B2CForm {...props} mode={mode} onModeChange={setMode} />
+      ) : (
+        <B2BForm {...props} mode={mode} onModeChange={setMode} />
+      )}
+    </div>
       </div>
     </section>
   );
@@ -66,14 +68,12 @@ type ModeToggleProps = {
 
 function ModeToggle({ mode, onModeChange, copy }: ModeToggleProps) {
   return (
-    <div className="inline-flex rounded-full bg-white/10 p-1 text-xs font-semibold shadow-inner">
+    <div className="inline-flex rounded-full bg-emerald-900/10 p-1 text-xs font-semibold text-emerald-900 shadow-inner">
       <button
         type="button"
         className={cn(
           'flex items-center gap-2 rounded-full px-4 py-1 transition',
-          mode === 'b2b'
-            ? 'bg-white text-emerald-900 shadow-lg'
-            : 'text-white/80 hover:text-white'
+          mode === 'b2b' ? 'bg-emerald-900 text-white shadow-lg' : 'text-emerald-700 hover:text-emerald-900'
         )}
         onClick={() => onModeChange('b2b')}
       >
@@ -83,9 +83,7 @@ function ModeToggle({ mode, onModeChange, copy }: ModeToggleProps) {
         type="button"
         className={cn(
           'flex items-center gap-2 rounded-full px-4 py-1 transition',
-          mode === 'b2c'
-            ? 'bg-white text-emerald-900 shadow-lg'
-            : 'text-white/80 hover:text-white'
+          mode === 'b2c' ? 'bg-emerald-900 text-white shadow-lg' : 'text-emerald-700 hover:text-emerald-900'
         )}
         onClick={() => onModeChange('b2c')}
       >
@@ -243,11 +241,12 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl bg-emerald-900/30 p-6 text-white">
-      <div className="space-y-2">
-        <div>
-          <p className="text-xl font-semibold tracking-wide">{copy.headingB2C}</p>
-          {copy.descriptionB2C ? <p className="text-sm text-white/80">{copy.descriptionB2C}</p> : null}
+    <form onSubmit={handleSubmit} className="space-y-6 text-emerald-950">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-500">For individuals</p>
+          <p className="text-2xl font-semibold">{copy.headingB2C}</p>
+          {copy.descriptionB2C ? <p className="text-sm text-emerald-600">{copy.descriptionB2C}</p> : null}
         </div>
         <ModeToggle mode={props.mode} onModeChange={props.onModeChange} copy={copy} />
       </div>
@@ -276,19 +275,19 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           onBlur={triggerAutosave}
         />
         {events.length === 0 ? (
-          <p className="text-sm text-amber-200">No upcoming hikes are linked to this landing yet.</p>
+          <p className="text-sm text-amber-600">No upcoming hikes are linked to this landing yet.</p>
         ) : (
-          <SelectField
-            label={copy.eventLabel}
-            value={form.eventId}
+        <SelectField
+          label={copy.eventLabel}
+          value={form.eventId}
             placeholder={copy.eventPlaceholder}
-            options={events.map((event) => ({ value: event.id, label: `${event.dateLabel} — ${event.title}` }))}
+          options={events.map((event) => ({ value: event.id, label: `${event.dateLabel} — ${event.title}` }))}
             disabled={events.length <= 1}
-            onChange={(value) => {
-              setForm((prev) => ({ ...prev, eventId: value }));
-              void triggerAutosave();
-            }}
-          />
+          onChange={(value) => {
+            setForm((prev) => ({ ...prev, eventId: value }));
+            void triggerAutosave();
+          }}
+        />
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <InputField
@@ -303,11 +302,11 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
             }}
           />
           <div className="space-y-1">
-            <label className="text-sm font-medium text-white/90">{copy.totalLabel}</label>
-            <div className="rounded-xl bg-white/10 px-3 py-2 text-lg font-semibold text-amber-300">
+            <label className="text-sm font-semibold text-emerald-900">{copy.totalLabel}</label>
+            <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-lg font-semibold text-emerald-900">
               {pricePreview ? `${pricePreview.total.toFixed(2)} ${currency}` : '--'}
             </div>
-            {earlyBirdText ? <p className="text-xs text-amber-200">{earlyBirdText}</p> : null}
+            {earlyBirdText ? <p className="text-xs text-emerald-700">{earlyBirdText}</p> : null}
           </div>
         </div>
         <TextareaField
@@ -317,7 +316,7 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
           onBlur={triggerAutosave}
         />
-        <label className="flex items-start gap-2 text-xs text-white/80">
+        <label className="flex items-start gap-2 text-xs text-emerald-700">
           <input
             type="checkbox"
             checked={form.marketingConsent}
@@ -326,15 +325,15 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           <span>{copy.marketingConsentLabel}</span>
         </label>
         {paymentMode === 'MANUAL' && (
-          <p className="text-xs text-white/70">{copy.manualDisclaimer}</p>
+          <p className="text-xs text-emerald-600">{copy.manualDisclaimer}</p>
         )}
       </div>
-      {autoSaveState === 'error' && <p className="text-xs text-amber-200">Could not save your progress automatically.</p>}
-      {errorMessage && <p className="text-sm text-red-300">{errorMessage}</p>}
-      {successMessage && <p className="text-sm text-emerald-200">{successMessage}</p>}
+      {autoSaveState === 'error' && <p className="text-xs text-amber-600">Could not save your progress automatically.</p>}
+      {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
+      {successMessage && <p className="text-sm text-emerald-600">{successMessage}</p>}
       <Button
         type="submit"
-        className="w-full bg-amber-400 text-emerald-900"
+        className="w-full rounded-2xl bg-emerald-600 text-white hover:bg-emerald-500"
         disabled={submitState === 'submitting' || !hasEvents}
       >
         {submitState === 'submitting' ? 'Submitting…' : copy.submitLabelB2C}
@@ -484,11 +483,12 @@ function B2BForm(
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl bg-emerald-900/30 p-6 text-white">
-      <div className="space-y-2">
-        <div>
-          <p className="text-xl font-semibold tracking-wide">{copy.headingB2B}</p>
-          {copy.descriptionB2B ? <p className="text-sm text-white/80">{copy.descriptionB2B}</p> : null}
+    <form onSubmit={handleSubmit} className="space-y-6 text-emerald-950">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-500">For companies</p>
+          <p className="text-2xl font-semibold">{copy.headingB2B}</p>
+          {copy.descriptionB2B ? <p className="text-sm text-emerald-600">{copy.descriptionB2B}</p> : null}
         </div>
         <ModeToggle mode={props.mode} onModeChange={props.onModeChange} copy={copy} />
       </div>
@@ -536,7 +536,7 @@ function B2BForm(
               }}
             />
           ) : (
-            <p className="text-sm text-amber-200">
+            <p className="text-sm text-amber-600">
               Add at least one hike type option in the builder to show a dropdown here.
             </p>
           )
@@ -571,7 +571,7 @@ function B2BForm(
           onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
           onBlur={triggerAutosave}
         />
-        <label className="flex items-start gap-2 text-xs text-white/80">
+        <label className="flex items-start gap-2 text-xs text-emerald-700">
           <input
             type="checkbox"
             checked={form.marketingConsent}
@@ -580,12 +580,12 @@ function B2BForm(
           <span>{copy.marketingConsentLabel}</span>
         </label>
       </div>
-      {autoSaveState === 'error' && <p className="text-xs text-amber-200">Could not save your progress automatically.</p>}
-      {errorMessage && <p className="text-sm text-red-300">{errorMessage}</p>}
-      {successMessage && <p className="text-sm text-emerald-200">{successMessage}</p>}
+      {autoSaveState === 'error' && <p className="text-xs text-amber-600">Could not save your progress automatically.</p>}
+      {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
+      {successMessage && <p className="text-sm text-emerald-600">{successMessage}</p>}
       <Button
         type="submit"
-        className="w-full bg-amber-400 text-emerald-900"
+        className="w-full rounded-2xl bg-emerald-600 text-white hover:bg-emerald-500"
         disabled={submitState === 'submitting'}
       >
         {submitState === 'submitting' ? 'Sending…' : copy.submitLabelB2B}
@@ -597,10 +597,16 @@ function B2BForm(
 function InputField({ label, ...props }: { label: string } & ComponentProps<typeof Input>) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-white/90" htmlFor={props.id}>
+      <label className="text-sm font-semibold text-emerald-900" htmlFor={props.id}>
         {label}
       </label>
-      <Input {...props} className={cn('bg-white/10 text-white placeholder:text-white/40', props.className)} />
+      <Input
+        {...props}
+        className={cn(
+          'rounded-2xl border border-emerald-900/10 bg-white px-3 py-2 text-base text-emerald-950 placeholder:text-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500',
+          props.className
+        )}
+      />
     </div>
   );
 }
@@ -608,10 +614,16 @@ function InputField({ label, ...props }: { label: string } & ComponentProps<type
 function TextareaField({ label, ...props }: { label: string } & ComponentProps<typeof Textarea>) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-white/90" htmlFor={props.id}>
+      <label className="text-sm font-semibold text-emerald-900" htmlFor={props.id}>
         {label}
       </label>
-      <Textarea {...props} className={cn('bg-white/10 text-white placeholder:text-white/40', props.className)} />
+      <Textarea
+        {...props}
+        className={cn(
+          'rounded-2xl border border-emerald-900/10 bg-white px-3 py-2 text-base text-emerald-950 placeholder:text-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500',
+          props.className
+        )}
+      />
     </div>
   );
 }
@@ -633,21 +645,21 @@ function SelectField({
 }) {
   return (
     <div className="space-y-1 text-sm">
-      <label className="font-medium text-white/90">{label}</label>
-      <div className="rounded-xl bg-white/10 px-3 py-2">
+      <label className="font-semibold text-emerald-900">{label}</label>
+      <div className="rounded-2xl border border-emerald-900/10 bg-white px-3 py-2">
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full bg-transparent text-sm text-white focus:outline-none"
+          className="w-full bg-transparent text-sm text-emerald-900 focus:outline-none"
           disabled={disabled}
         >
           {placeholder ? (
-            <option value="" disabled className="bg-emerald-800 text-white/70">
+            <option value="" disabled className="bg-emerald-50 text-emerald-500">
               {placeholder}
             </option>
           ) : null}
           {options.map((option) => (
-            <option key={option.value} value={option.value} className="bg-emerald-800">
+            <option key={option.value} value={option.value} className="bg-white text-emerald-900">
               {option.label}
             </option>
           ))}
@@ -662,27 +674,38 @@ function TestimonialsPanel({ testimonials }: { testimonials: ContactTestimonial[
 
   if (testimonials.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-white/15 bg-white/5 p-6 text-center text-white/70">
+      <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
         <p className="text-sm">Add testimonials in the builder to show customer love here.</p>
       </div>
     );
   }
 
   const active = testimonials[index % testimonials.length];
+  const rating = active.rating ?? null;
 
   return (
-    <div className="flex flex-col rounded-2xl border border-white/15 bg-white/5 p-5 text-white shadow-inner">
+    <div className="flex h-full flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-900/70 to-emerald-700/50 p-6 text-white shadow-2xl">
       <div className="space-y-4">
+        <p className="text-xs uppercase tracking-[0.4em] text-emerald-200/80">Testimonials</p>
         <div className="text-5xl leading-none text-emerald-200">&ldquo;</div>
-        <p className="text-lg font-semibold leading-relaxed text-white">{active.quote}</p>
-        <p className="text-sm font-medium text-white/70">— {active.author}</p>
+        <p className="text-lg font-semibold leading-relaxed">{active.quote}</p>
+        <div className="space-y-1 text-sm text-emerald-100/90">
+          <p>— {active.author}</p>
+          {rating ? (
+            <div className="flex items-center gap-1 text-amber-300">
+              {Array.from({ length: 5 }).map((_, starIndex) => (
+                <span key={starIndex}>{starIndex < rating ? '★' : '☆'}</span>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
       {testimonials.length > 1 && (
-        <div className="mt-6 flex items-center justify-between text-xs text-white/70">
+        <div className="mt-6 flex items-center justify-between text-xs text-white/80">
           <button
             type="button"
             onClick={() => setIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length)}
-            className="rounded-full border border-white/30 px-3 py-1 hover:border-white/80"
+            className="rounded-full border border-white/30 px-3 py-1 transition hover:border-white/80"
           >
             Prev
           </button>
@@ -700,7 +723,7 @@ function TestimonialsPanel({ testimonials }: { testimonials: ContactTestimonial[
           <button
             type="button"
             onClick={() => setIndex((prev) => (prev + 1) % testimonials.length)}
-            className="rounded-full border border-white/30 px-3 py-1 hover:border-white/80"
+            className="rounded-full border border-white/30 px-3 py-1 transition hover:border-white/80"
           >
             Next
           </button>
