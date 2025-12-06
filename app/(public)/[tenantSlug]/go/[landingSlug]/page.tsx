@@ -34,6 +34,12 @@ type LandingBlockRecord = {
   visibleDesktop: boolean;
 };
 
+const SECTION_VARIANTS: Record<string, string> = {
+  hero: 'border-none bg-transparent p-0',
+  contactForm: 'border-none bg-transparent p-0',
+  default: 'rounded-3xl border border-border/60 bg-background/60 p-6 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.6)] backdrop-blur'
+};
+
 export default async function PublicLandingPage({ params }: PublicLandingPageProps) {
   const { tenantSlug, landingSlug } = await params;
   const prisma = getPrisma();
@@ -110,30 +116,30 @@ export default async function PublicLandingPage({ params }: PublicLandingPagePro
   const isDraft = landing.status !== 'PUBLISHED';
 
   return (
-    <main className="bg-background text-foreground">
-      <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
+    <main className="min-h-screen bg-neutral-950 text-foreground">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.25),_transparent_55%)]" aria-hidden />
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8">
         {isDraft ? (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 text-sm text-amber-900 shadow">
             This landing page is currently in <span className="font-semibold">Draft</span>. Publish it in the admin panel to
             share it with participants.
           </div>
         ) : null}
-        <header className="space-y-2 text-center">
-          <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">{tenant.name}</p>
-          <h1 className="text-4xl font-semibold tracking-tight">{landing.title}</h1>
+        <header className="space-y-3 text-center">
+          <p className="text-xs uppercase tracking-[0.45em] text-emerald-200/80">{tenant.name}</p>
+          <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">{landing.title}</h1>
         </header>
 
         {blocks.map((block) => {
           const variantId = resolveVariantIdForBlock(block);
           const content = parseBlockContent(block.content);
+          const variantKey = variantId ?? 'default';
+          const sectionClass = SECTION_VARIANTS[variantKey] ?? SECTION_VARIANTS.default;
 
           return (
             <section
               key={block.id}
-              className={cn(
-                'rounded-2xl border border-border bg-card/60 p-6 shadow-sm',
-                getVisibilityClass(block.visibleMobile, block.visibleDesktop)
-              )}
+              className={cn(sectionClass, getVisibilityClass(block.visibleMobile, block.visibleDesktop))}
             >
               {renderLandingBlock({
                 block,
@@ -201,14 +207,27 @@ function HeroBlock({ content, tenantName, landingTitle }: { content: BlockConten
   const ctaHref = safeString(content.ctaHref, '#contact');
 
   return (
-    <div className="space-y-4 text-center">
-      <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">{tenantName}</p>
-      <h2 className="text-4xl font-semibold tracking-tight">{heading}</h2>
-      {subheading ? <p className="text-base text-muted-foreground">{subheading}</p> : null}
-      <div className="flex justify-center">
-        <Button asChild>
-          <a href={ctaHref}>{ctaLabel}</a>
-        </Button>
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-600 px-6 py-16 text-white shadow-2xl">
+      <div className="absolute inset-0 opacity-30 blur-2xl [background-image:radial-gradient(circle,_#34d39940,_transparent_45%)]" />
+      <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+        <p className="text-xs uppercase tracking-[0.5em] text-emerald-100/80">{tenantName}</p>
+        <div className="space-y-4">
+          <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">{heading}</h2>
+          {subheading ? <p className="text-base text-emerald-50/90 sm:text-lg">{subheading}</p> : null}
+        </div>
+        <div className="flex flex-wrap justify-center gap-3">
+          <Button asChild size="lg" className="bg-white text-emerald-900 hover:bg-white/90">
+            <a href={ctaHref}>{ctaLabel}</a>
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="border-white/40 text-white hover:bg-white/10"
+            asChild
+          >
+            <a href="#contact">Contact us</a>
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -220,16 +239,21 @@ function TextImageBlock({ content }: { content: BlockContent }) {
   const imageUrl = safeString(content.imageUrl);
 
   return (
-    <div className="flex flex-col gap-6 md:flex-row md:items-center">
-      <div className="flex-1 space-y-2">
-        <h3 className="text-2xl font-semibold tracking-tight">{title}</h3>
-        <p className="text-base text-muted-foreground">{body}</p>
+    <div className="grid gap-10 md:grid-cols-2">
+      <div className="space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-400/80">Experience</p>
+        <h3 className="text-3xl font-semibold tracking-tight">{title}</h3>
+        <p className="text-base leading-relaxed text-muted-foreground">{body}</p>
       </div>
       {imageUrl ? (
-        <div className="flex-1 overflow-hidden rounded-xl border border-border">
-          <img src={imageUrl} alt={title || 'Landing visual'} className="h-64 w-full object-cover" loading="lazy" />
+        <div className="overflow-hidden rounded-2xl border border-border/60 shadow-lg">
+          <img src={imageUrl} alt={title || 'Landing visual'} className="h-72 w-full object-cover" loading="lazy" />
         </div>
-      ) : null}
+      ) : (
+        <div className="rounded-2xl border border-dashed border-border/60 p-6 text-sm text-muted-foreground">
+          Add an image to this block to showcase the atmosphere.
+        </div>
+      )}
     </div>
   );
 }
@@ -242,7 +266,7 @@ function VideoBlock({ content }: { content: BlockContent }) {
   }
 
   return (
-    <div className="aspect-video overflow-hidden rounded-xl border border-border bg-black">
+    <div className="aspect-video overflow-hidden rounded-3xl border border-border/60 shadow-2xl">
       <iframe src={embedUrl} title="Landing video" className="h-full w-full" allowFullScreen />
     </div>
   );
@@ -260,9 +284,9 @@ function GalleryBlock({ content }: { content: BlockContent }) {
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {images.map((image, index) => (
-        <figure key={`${image.imageUrl}-${index}`} className="overflow-hidden rounded-xl border border-border">
+        <figure key={`${image.imageUrl}-${index}`} className="overflow-hidden rounded-2xl border border-border/60 shadow">
           <img
             src={image.imageUrl}
             alt={image.caption || `Gallery image ${index + 1}`}
@@ -288,11 +312,14 @@ function TestimonialsBlock({ content }: { content: BlockContent }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-4 md:grid-cols-2">
       {items.map((item, idx) => (
-        <blockquote key={`${item.author}-${idx}`} className="rounded-xl border border-border bg-background/70 p-4">
-          <p className="text-base text-foreground">&ldquo;{item.text}&rdquo;</p>
-          <p className="mt-2 text-sm text-muted-foreground">— {item.author}</p>
+        <blockquote
+          key={`${item.author}-${idx}`}
+          className="rounded-2xl border border-border/60 bg-background/70 p-5 shadow-sm"
+        >
+          <p className="text-base font-medium text-foreground">&ldquo;{item.text}&rdquo;</p>
+          <p className="mt-3 text-sm text-muted-foreground">— {item.author}</p>
         </blockquote>
       ))}
     </div>
@@ -311,11 +338,18 @@ function FaqBlock({ content }: { content: BlockContent }) {
   }
 
   return (
-    <div className="divide-y divide-border rounded-xl border border-border">
+    <div className="space-y-3">
       {items.map((item, idx) => (
-        <details key={`${item.question}-${idx}`} className="group">
-          <summary className="cursor-pointer list-none px-4 py-3 font-medium text-foreground">{item.question}</summary>
-          <p className="px-4 pb-4 text-sm text-muted-foreground">{item.answer || 'Details coming soon.'}</p>
+        <details
+          key={`${item.question}-${idx}`}
+          className="group rounded-2xl border border-border/60 bg-background/70 p-4 shadow-sm transition hover:border-emerald-300/70"
+        >
+          <summary className="cursor-pointer list-none text-base font-semibold text-foreground">
+            {item.question}
+          </summary>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {item.answer || 'Details coming soon.'}
+          </p>
         </details>
       ))}
     </div>
@@ -327,10 +361,10 @@ function EventHighlightBlock({ content }: { content: BlockContent }) {
   const body = safeString(content.body, 'More details coming soon.');
 
   return (
-    <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4">
-      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Highlight</p>
-      <h3 className="text-2xl font-semibold">{title}</h3>
-      <p className="text-base text-muted-foreground">{body}</p>
+    <div className="space-y-3 rounded-3xl border border-border/60 bg-gradient-to-br from-emerald-50 to-white p-6 shadow-lg">
+      <p className="text-xs uppercase tracking-[0.4em] text-emerald-600">Highlight</p>
+      <h3 className="text-2xl font-semibold text-slate-900">{title}</h3>
+      <p className="text-base text-slate-600">{body}</p>
     </div>
   );
 }

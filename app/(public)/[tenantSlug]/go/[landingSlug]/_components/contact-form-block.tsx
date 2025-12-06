@@ -38,14 +38,23 @@ type ContactFormBlockProps = {
 export function ContactFormBlock(props: ContactFormBlockProps) {
   const [mode, setMode] = useState<ContactFormConfig['mode']>(props.config.mode);
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(280px,360px),minmax(0,1fr)]">
-      <TestimonialsPanel testimonials={props.testimonials} />
-      {mode === 'b2c' ? (
-        <B2CForm {...props} mode={mode} onModeChange={setMode} />
-      ) : (
-        <B2BForm {...props} mode={mode} onModeChange={setMode} />
-      )}
-    </div>
+    <section
+      id="contact"
+      className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-900/70 via-emerald-900/80 to-slate-900/70 p-6 text-white shadow-[0_30px_80px_-40px_rgba(6,78,59,0.8)] lg:p-10"
+    >
+      <div className="mb-8 flex flex-col gap-2 text-sm uppercase tracking-[0.45em] text-emerald-100/70">
+        <span>Get in touch</span>
+        <div className="h-px w-12 bg-emerald-300/60" />
+      </div>
+      <div className="grid gap-10 lg:grid-cols-[minmax(260px,320px),minmax(0,1fr)]">
+        <TestimonialsPanel testimonials={props.testimonials} />
+        {mode === 'b2c' ? (
+          <B2CForm {...props} mode={mode} onModeChange={setMode} />
+        ) : (
+          <B2BForm {...props} mode={mode} onModeChange={setMode} />
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -57,12 +66,14 @@ type ModeToggleProps = {
 
 function ModeToggle({ mode, onModeChange, copy }: ModeToggleProps) {
   return (
-    <div className="inline-flex rounded-full bg-emerald-900/40 p-1 text-xs font-semibold">
+    <div className="inline-flex rounded-full bg-white/10 p-1 text-xs font-semibold shadow-inner">
       <button
         type="button"
         className={cn(
           'flex items-center gap-2 rounded-full px-4 py-1 transition',
-          mode === 'b2b' ? 'bg-amber-400 text-emerald-900 shadow' : 'text-white hover:text-amber-200'
+          mode === 'b2b'
+            ? 'bg-white text-emerald-900 shadow-lg'
+            : 'text-white/80 hover:text-white'
         )}
         onClick={() => onModeChange('b2b')}
       >
@@ -72,7 +83,9 @@ function ModeToggle({ mode, onModeChange, copy }: ModeToggleProps) {
         type="button"
         className={cn(
           'flex items-center gap-2 rounded-full px-4 py-1 transition',
-          mode === 'b2c' ? 'bg-amber-400 text-emerald-900 shadow' : 'text-white hover:text-amber-200'
+          mode === 'b2c'
+            ? 'bg-white text-emerald-900 shadow-lg'
+            : 'text-white/80 hover:text-white'
         )}
         onClick={() => onModeChange('b2c')}
       >
@@ -649,8 +662,8 @@ function TestimonialsPanel({ testimonials }: { testimonials: ContactTestimonial[
 
   if (testimonials.length === 0) {
     return (
-      <div className="rounded-3xl bg-emerald-800/40 p-6 text-white flex flex-col items-center justify-center text-center">
-        <p className="text-sm text-white/70">Add testimonials in the builder to show customer love here.</p>
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-white/15 bg-white/5 p-6 text-center text-white/70">
+        <p className="text-sm">Add testimonials in the builder to show customer love here.</p>
       </div>
     );
   }
@@ -658,18 +671,18 @@ function TestimonialsPanel({ testimonials }: { testimonials: ContactTestimonial[
   const active = testimonials[index % testimonials.length];
 
   return (
-    <div className="rounded-3xl bg-emerald-800/40 p-6 text-white flex flex-col">
-      <div className="space-y-3">
-        <div className="text-5xl text-amber-300">“</div>
-        <p className="text-lg font-semibold leading-snug">{active.quote}</p>
-        <p className="text-sm text-white/70">{active.author}</p>
+    <div className="flex flex-col rounded-2xl border border-white/15 bg-white/5 p-5 text-white shadow-inner">
+      <div className="space-y-4">
+        <div className="text-5xl leading-none text-emerald-200">&ldquo;</div>
+        <p className="text-lg font-semibold leading-relaxed text-white">{active.quote}</p>
+        <p className="text-sm font-medium text-white/70">— {active.author}</p>
       </div>
       {testimonials.length > 1 && (
         <div className="mt-6 flex items-center justify-between text-xs text-white/70">
           <button
             type="button"
             onClick={() => setIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length)}
-            className="rounded-full border border-white/30 px-3 py-1 hover:border-white"
+            className="rounded-full border border-white/30 px-3 py-1 hover:border-white/80"
           >
             Prev
           </button>
@@ -687,7 +700,7 @@ function TestimonialsPanel({ testimonials }: { testimonials: ContactTestimonial[
           <button
             type="button"
             onClick={() => setIndex((prev) => (prev + 1) % testimonials.length)}
-            className="rounded-full border border-white/30 px-3 py-1 hover:border-white"
+            className="rounded-full border border-white/30 px-3 py-1 hover:border-white/80"
           >
             Next
           </button>
