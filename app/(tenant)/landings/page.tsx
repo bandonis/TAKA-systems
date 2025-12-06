@@ -9,7 +9,7 @@ import { getPrisma } from '@/lib/db';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { buildContactFormContent, getBlockVariantDefinition } from '@/lib/landings/blocks';
+import { buildContactFormContent, getBlockVariantDefinition, getDefaultContactFormConfig } from '@/lib/landings/blocks';
 
 import { CreateLandingButton } from './_components/create-landing-button';
 import { LandingDeleteButton } from './_components/landing-delete-button';
@@ -168,7 +168,7 @@ async function createLandingAction() {
 
     const contactContent = buildContactFormContent(
       { content: contactDefinition.defaultContent } as Pick<LandingBlock, 'content'>,
-      { allowedEventIds: [] }
+      getDefaultContactFormConfig()
     );
 
     await tx.landingBlock.create({

@@ -43,6 +43,15 @@ export type ContactFormConfig = {
   testimonials: ContactFormTestimonial[];
 };
 
+export function getDefaultContactFormConfig(): ContactFormConfig {
+  return {
+    mode: 'b2c',
+    allowedEventIds: [],
+    allowedEventTypeIds: [],
+    testimonials: []
+  };
+}
+
 export const CONTACT_FORM_VARIANT = 'contactForm';
 
 export const BLOCK_VARIANTS: BlockVariantDefinition[] = [
@@ -211,12 +220,7 @@ export function getContactFormConfig(block: Pick<LandingBlock, 'content'>): Cont
     };
   }
 
-  return {
-    mode: 'b2c',
-    allowedEventIds: [],
-    allowedEventTypeIds: [],
-    testimonials: []
-  };
+  return getDefaultContactFormConfig();
 }
 
 export function buildContactFormContent(block: Pick<LandingBlock, 'content'>, config: ContactFormConfig) {
