@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useEffect, useState } from 'react';
+import { useFormStatus } from 'react-dom';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,23 +27,11 @@ type LandingHeaderFormProps = {
 const initialState: LandingHeaderFormState = {};
 
 export function LandingHeaderForm({ landingId, title, slug, status }: LandingHeaderFormProps) {
-  const [state, formAction] = useFormState(updateLandingHeader, initialState);
-  const [localTitle, setLocalTitle] = useState(title);
-  const [localSlug, setLocalSlug] = useState(slug);
-  const [localStatus, setLocalStatus] = useState<LandingStatusValue>(status);
+  const [state, formAction] = useActionState(updateLandingHeader, initialState);
+  const [localTitle, setLocalTitle] = useState(() => title);
+  const [localSlug, setLocalSlug] = useState(() => slug);
+  const [localStatus, setLocalStatus] = useState<LandingStatusValue>(() => status);
   const [justSaved, setJustSaved] = useState(false);
-
-  useEffect(() => {
-    setLocalTitle(title);
-  }, [title]);
-
-  useEffect(() => {
-    setLocalSlug(slug);
-  }, [slug]);
-
-  useEffect(() => {
-    setLocalStatus(status);
-  }, [status]);
 
   useEffect(() => {
     if (state.success) {
