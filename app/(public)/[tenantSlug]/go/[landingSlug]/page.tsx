@@ -4,8 +4,6 @@ import { getPrisma } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { TENANT_STATUS } from '@/lib/prisma/enums';
-import type { ContactFormCopy } from '@/lib/contact/copy';
-import { getContactFormCopy } from '@/lib/contact/copy';
 import {
   getContactFormConfig,
   isContactFormBlock,
@@ -15,8 +13,9 @@ import {
   type BlockVariantId,
   type ContactFormConfig
 } from '@/lib/landings/blocks';
+import { buildContactResources, type ContactResources } from '@/lib/contact/resources';
 import type { LandingBlockType, Prisma } from '@prisma/client';
-import { ContactFormBlock, type ContactEventOption as PublicContactEventOption, type ContactEventTypeOption, type ContactTestimonial } from './_components/contact-form-block';
+import { ContactFormBlock } from './_components/contact-form-block';
 
 export const runtime = "nodejs";
 
@@ -33,12 +32,6 @@ type LandingBlockRecord = {
   content: Prisma.JsonValue;
   visibleMobile: boolean;
   visibleDesktop: boolean;
-};
-
-type ContactEventOption = {
-  id: string;
-  title: string;
-  dateLabel: string;
 };
 
 export default async function PublicLandingPage({ params }: PublicLandingPageProps) {
