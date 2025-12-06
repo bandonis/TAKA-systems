@@ -44,21 +44,27 @@ export function AddBlockControl({
     startTransition(() => {
       setError(null);
 
-      fetch(`/api/landings/${landingId}/blocks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variantId: selected })
-      })
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error('Failed to add block');
+      const run = async () => {
+        try {
+          const response = await fetch(`/api/landings/${landingId}/blocks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ variantId: selected })
+          });
+
+          if (!response.ok) {
+            const message = await extractErrorMessage(response);
+            throw new Error(message);
           }
+
           router.refresh();
-        })
-        .catch((err) => {
+        } catch (err) {
           console.error(err);
-          setError('Unable to add block. Please try again.');
-        });
+          setError((err instanceof Error && err.message) || 'Unable to add block. Please try again.');
+        }
+      };
+
+      void run();
     });
   };
 
@@ -99,5 +105,17 @@ export function AddBlockControl({
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
     </div>
   );
+}
+
+async function extractErrorMessage(response: Response) {
+  try {
+    const data = await response.json();
+    if (data && typeof data.error === 'string') {
+      return data.error;
+    }
+  } catch {
+    // ignore
+  }
+  return 'Unable to add block. Please try again.';
 }
 

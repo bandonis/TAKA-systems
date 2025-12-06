@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, Loader2, Monitor, Smartphone, Trash2 } from 'lucide-react';
 
@@ -30,6 +30,10 @@ type BlockCardProps = {
   events: EventOption[];
 };
 
+type ConfigUpdater =
+  | ContactFormConfig
+  | ((prev: ContactFormConfig) => ContactFormConfig);
+
 const EMPTY_CONTACT_CONFIG: ContactFormConfig = {
   mode: 'b2c',
   allowedEventIds: [],
@@ -56,11 +60,22 @@ export function BlockCard(props: BlockCardProps) {
   const [contactConfigState, setContactConfigState] = useState<ContactFormConfig>(() =>
     normalizeContactConfig(props.contactConfig)
   );
+  const latestConfigRef = useRef<ContactFormConfig>(contactConfigState);
+
   useEffect(() => {
-    setContactConfigState(normalizeContactConfig(props.contactConfig));
+    const normalized = normalizeContactConfig(props.contactConfig);
+    setContactConfigState(normalized);
+    latestConfigRef.current = normalized;
   }, [props.contactConfig]);
 
-  const mutate = (init: RequestInit, options?: { onError?: () => void }) => {
+  useEffect(() => {
+    latestConfigRef.current = contactConfigState;
+  }, [contactConfigState]);
+
+  const mutate = (
+    init: RequestInit,
+    options?: { onError?: () => void; skipRefresh?: boolean }
+  ) => {
     startTransition(() => {
       setError(null);
       const headers =
@@ -71,21 +86,29 @@ export function BlockCard(props: BlockCardProps) {
             }
           : init.headers;
 
-      fetch(`/api/landings/${props.landingId}/blocks/${props.blockId}`, {
-        ...init,
-        headers
-      })
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error('Request failed');
+      const run = async () => {
+        try {
+          const response = await fetch(`/api/landings/${props.landingId}/blocks/${props.blockId}`, {
+            ...init,
+            headers
+          });
+
+          if (!response.ok) {
+            const message = await extractErrorMessage(response);
+            throw new Error(message);
           }
-          router.refresh();
-        })
-        .catch((err) => {
+
+          if (!options?.skipRefresh) {
+            router.refresh();
+          }
+        } catch (err) {
           console.error(err);
-          setError('Unable to update block. Please try again.');
+          setError((err instanceof Error && err.message) || 'Unable to update block. Please try again.');
           options?.onError?.();
-        });
+        }
+      };
+
+      void run();
     });
   };
 
@@ -122,26 +145,57 @@ export function BlockCard(props: BlockCardProps) {
     });
   };
 
-  const applyContactConfig = (nextConfig: ContactFormConfig) => {
+  const saveContactConfig = (configToSave: ContactFormConfig) => {
+    const requiresHikeType = configToSave.mode === 'b2b' && configToSave.showHikeTypeField;
+    const hasValidHikeType =
+      configToSave.hikeTypeLabel.trim().length > 0 && configToSave.hikeTypeOptions.length > 0;
+
+    if (requiresHikeType && !hasValidHikeType) {
+      return;
+    }
+
     const previous = contactConfigState;
-    setContactConfigState(nextConfig);
     mutate(
       {
         method: 'PATCH',
         body: JSON.stringify({
           action: 'contactConfig',
-          mode: nextConfig.mode,
-          allowedEventIds: nextConfig.allowedEventIds,
-          showHikeTypeField: nextConfig.showHikeTypeField,
-          hikeTypeLabel: nextConfig.hikeTypeLabel,
-          hikeTypeOptions: nextConfig.hikeTypeOptions,
-          testimonials: nextConfig.testimonials
+          mode: configToSave.mode,
+          allowedEventIds: configToSave.allowedEventIds,
+          showHikeTypeField: configToSave.showHikeTypeField,
+          hikeTypeLabel: configToSave.hikeTypeLabel,
+          hikeTypeOptions: configToSave.hikeTypeOptions,
+          testimonials: configToSave.testimonials
         })
       },
       {
-        onError: () => setContactConfigState(previous)
+        onError: () => setContactConfigState(previous),
+        skipRefresh: true
       }
     );
+  };
+
+  const updateContactConfig = (
+    updater: ConfigUpdater,
+    options?: { save?: 'immediate' | 'none' }
+  ) => {
+    setContactConfigState((prev) => {
+      const next =
+        typeof updater === 'function'
+          ? (updater as (value: ContactFormConfig) => ContactFormConfig)(prev)
+          : updater;
+      latestConfigRef.current = next;
+
+      if (!options || options.save === 'immediate') {
+        saveContactConfig(next);
+      }
+
+      return next;
+    });
+  };
+
+  const commitContactConfig = () => {
+    saveContactConfig(latestConfigRef.current);
   };
 
   const contactWarning =
@@ -206,7 +260,8 @@ export function BlockCard(props: BlockCardProps) {
           events={props.events}
           disabled={isPending}
           warning={contactWarning}
-          onConfigChange={applyContactConfig}
+          onConfigChange={updateContactConfig}
+          onConfigCommit={commitContactConfig}
         />
       ) : null}
 
@@ -248,50 +303,95 @@ type ContactConfiguratorProps = {
   events: EventOption[];
   disabled: boolean;
   warning: boolean;
-  onConfigChange: (nextConfig: ContactFormConfig) => void;
+  onConfigChange: (updater: ConfigUpdater, options?: { save?: 'immediate' | 'none' }) => void;
+  onConfigCommit: () => void;
 };
 
-function ContactConfigurator({ config, events, disabled, warning, onConfigChange }: ContactConfiguratorProps) {
+function ContactConfigurator({
+  config,
+  events,
+  disabled,
+  warning,
+  onConfigChange,
+  onConfigCommit
+}: ContactConfiguratorProps) {
+  const [hikeOptionsDraft, setHikeOptionsDraft] = useState(config.hikeTypeOptions.join('\n'));
+
+  useEffect(() => {
+    setHikeOptionsDraft(config.hikeTypeOptions.join('\n'));
+  }, [config.hikeTypeOptions.join('\u0001'), config.showHikeTypeField]);
   const updateMode = (mode: ContactFormConfig['mode']) => {
     if (mode === config.mode) {
       return;
     }
-    onConfigChange({ ...config, mode });
+    onConfigChange((prev) => ({ ...prev, mode }));
   };
 
   const toggleEvent = (eventId: string, checked: boolean) => {
-    const set = new Set(config.allowedEventIds);
-    if (checked) {
-      set.add(eventId);
-    } else {
-      set.delete(eventId);
-    }
-    onConfigChange({ ...config, allowedEventIds: Array.from(set) });
-  };
-
-  const handleHikeToggle = (checked: boolean) => {
-    onConfigChange({
-      ...config,
-      showHikeTypeField: checked
+    onConfigChange((prev) => {
+      const set = new Set(prev.allowedEventIds);
+      if (checked) {
+        set.add(eventId);
+      } else {
+        set.delete(eventId);
+      }
+      return { ...prev, allowedEventIds: Array.from(set) };
     });
   };
 
+  const handleHikeToggle = (checked: boolean) => {
+    onConfigChange((prev) => ({
+      ...prev,
+      showHikeTypeField: checked,
+      hikeTypeOptions: checked && prev.hikeTypeOptions.length === 0 ? ['Private hike'] : prev.hikeTypeOptions,
+      hikeTypeLabel: checked ? prev.hikeTypeLabel || 'Hike type' : prev.hikeTypeLabel
+    }));
+  };
+
   const updateHikeLabel = (value: string) => {
-    onConfigChange({ ...config, hikeTypeLabel: value });
+    onConfigChange(
+      (prev) => ({
+        ...prev,
+        hikeTypeLabel: value
+      }),
+      { save: 'none' }
+    );
   };
 
-  const updateHikeOptions = (value: string) => {
-    const options = value
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    const unique = Array.from(new Set(options));
-    onConfigChange({ ...config, hikeTypeOptions: unique });
+  const updateHikeOptionsDraft = (value: string) => {
+    setHikeOptionsDraft(value);
   };
 
-  const updateTestimonial = (id: string, partial: Partial<ContactFormTestimonial>) => {
-    const items = config.testimonials.map((item) => (item.id === id ? { ...item, ...partial } : item));
-    onConfigChange({ ...config, testimonials: items });
+  const commitHikeOptions = () => {
+    const unique = Array.from(
+      new Set(
+        hikeOptionsDraft
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+      )
+    );
+    onConfigChange(
+      (prev) => ({
+        ...prev,
+        hikeTypeOptions: unique
+      }),
+      { save: 'immediate' }
+    );
+  };
+
+  const updateTestimonial = (
+    id: string,
+    partial: Partial<ContactFormTestimonial>,
+    options?: { save?: 'immediate' | 'none' }
+  ) => {
+    onConfigChange(
+      (prev) => ({
+        ...prev,
+        testimonials: prev.testimonials.map((item) => (item.id === id ? { ...item, ...partial } : item))
+      }),
+      options
+    );
   };
 
   const addTestimonial = () => {
@@ -300,11 +400,14 @@ function ContactConfigurator({ config, events, disabled, warning, onConfigChange
       author: 'New author',
       quote: 'Share a kind word...'
     };
-    onConfigChange({ ...config, testimonials: [...config.testimonials, newItem] });
+    onConfigChange((prev) => ({ ...prev, testimonials: [...prev.testimonials, newItem] }));
   };
 
   const removeTestimonial = (id: string) => {
-    onConfigChange({ ...config, testimonials: config.testimonials.filter((item) => item.id !== id) });
+    onConfigChange((prev) => ({
+      ...prev,
+      testimonials: prev.testimonials.filter((item) => item.id !== id)
+    }));
   };
 
   return (
@@ -391,6 +494,7 @@ function ContactConfigurator({ config, events, disabled, warning, onConfigChange
                   value={config.hikeTypeLabel}
                   maxLength={80}
                   onChange={(event) => updateHikeLabel(event.target.value)}
+                  onBlur={onConfigCommit}
                   disabled={disabled}
                 />
               </div>
@@ -398,8 +502,9 @@ function ContactConfigurator({ config, events, disabled, warning, onConfigChange
                 <label className="text-xs font-medium text-muted-foreground">Options (one per line)</label>
                 <textarea
                   className="h-28 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                  value={config.hikeTypeOptions.join('\n')}
-                  onChange={(event) => updateHikeOptions(event.target.value)}
+                  value={hikeOptionsDraft}
+                  onChange={(event) => updateHikeOptionsDraft(event.target.value)}
+                  onBlur={commitHikeOptions}
                   disabled={disabled}
                 />
               </div>
@@ -429,7 +534,10 @@ function ContactConfigurator({ config, events, disabled, warning, onConfigChange
                       value={testimonial.author}
                       className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                       disabled={disabled}
-                      onChange={(event) => updateTestimonial(testimonial.id, { author: event.target.value })}
+                      onChange={(event) =>
+                        updateTestimonial(testimonial.id, { author: event.target.value }, { save: 'none' })
+                      }
+                      onBlur={onConfigCommit}
                     />
                   </label>
                   <label className="flex w-full max-w-[120px] flex-col text-xs font-medium text-foreground">
@@ -442,10 +550,15 @@ function ContactConfigurator({ config, events, disabled, warning, onConfigChange
                       className="rounded-md border border-input bg-background px-2 py-1 text-sm"
                       disabled={disabled}
                       onChange={(event) =>
-                        updateTestimonial(testimonial.id, {
-                          rating: event.target.value === '' ? undefined : Number(event.target.value)
-                        })
+                        updateTestimonial(
+                          testimonial.id,
+                          {
+                            rating: event.target.value === '' ? undefined : Number(event.target.value)
+                          },
+                          { save: 'none' }
+                        )
                       }
+                      onBlur={onConfigCommit}
                     />
                   </label>
                 </div>
@@ -456,7 +569,10 @@ function ContactConfigurator({ config, events, disabled, warning, onConfigChange
                     className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                     rows={3}
                     disabled={disabled}
-                    onChange={(event) => updateTestimonial(testimonial.id, { quote: event.target.value })}
+                    onChange={(event) =>
+                      updateTestimonial(testimonial.id, { quote: event.target.value }, { save: 'none' })
+                    }
+                    onBlur={onConfigCommit}
                   />
                 </label>
                 <div className="flex justify-end">
@@ -506,6 +622,7 @@ function normalizeContactConfig(config: ContactFormConfig): ContactFormConfig {
   };
 }
 
+
 function normalizeHikeOptions(options: string[]): string[] {
   const seen = new Set<string>();
   const next: string[] = [];
@@ -518,5 +635,17 @@ function normalizeHikeOptions(options: string[]): string[] {
     next.push(trimmed);
   }
   return next;
+}
+
+async function extractErrorMessage(response: Response) {
+  try {
+    const data = await response.json();
+    if (data && typeof data.error === 'string') {
+      return data.error;
+    }
+  } catch {
+    // ignore json parse errors
+  }
+  return 'Request failed';
 }
 
