@@ -60,9 +60,29 @@ export const POST = withTenantRoute(
 
     const currency = tenantSettings?.currency ?? 'EUR';
 
+    if (participant.ticketCount == null || participant.ticketCount < 1) {
+      throw new BadRequestError('Invalid ticket count for checkout');
+    }
+
+    const participantForCheckout = {
+      id: participant.id,
+      tenantId: participant.tenantId,
+      eventId: participant.eventId,
+      email: participant.email,
+      ticketCount: participant.ticketCount,
+      amountPaid: participant.amountPaid,
+      event: {
+        title: event.title,
+        earlyBirdDeadline: event.earlyBirdDeadline,
+        earlyBirdPrice: event.earlyBirdPrice,
+        priceGroup: event.priceGroup,
+        priceSingle: event.priceSingle
+      }
+    };
+
     const session = await createCheckoutSessionForParticipant({
       tenantId: tenant.tenantId,
-      participant,
+      participant: participantForCheckout,
       currency,
       successPath: input?.successPath,
       cancelPath: input?.cancelPath

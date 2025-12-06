@@ -9,7 +9,7 @@ type ParticipantWithEvent = {
   tenantId: string;
   eventId: string;
   email: string;
-  ticketCount: number;
+  ticketCount: number | null;
   amountPaid: Decimal | null;
   event: {
     title: string;
@@ -39,9 +39,15 @@ export async function createCheckoutSessionForParticipant({
     throw new Error('Participant event is required to start checkout');
   }
 
+  if (participant.ticketCount == null || participant.ticketCount <= 0) {
+    throw new Error('Invalid ticket count for checkout');
+  }
+
+  const ticketCount = participant.ticketCount;
+
   let amount = participant.amountPaid;
   if (!amount) {
-    const pricing = calculateEventPrice(participant.event, participant.ticketCount);
+    const pricing = calculateEventPrice(participant.event, ticketCount);
     amount = pricing.total;
   }
 
@@ -68,14 +74,14 @@ export async function createCheckoutSessionForParticipant({
     },
     line_items: [
       {
-        quantity: participant.ticketCount,
+        quantity: ticketCount,
         price_data: {
           currency: currency.toLowerCase(),
           product_data: {
             name: participant.event.title,
             description: `Registration for ${participant.event.title}`
           },
-          unit_amount: Math.round((amountNumber / participant.ticketCount) * 100)
+          unit_amount: Math.round((amountNumber / ticketCount) * 100)
         }
       }
     ]
