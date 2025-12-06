@@ -244,6 +244,7 @@ phone
 companyName
 participantEstimate
 eventType
+requestedHikeType
 comment
 source
 createdAt
@@ -452,7 +453,7 @@ Logs: sentAt, openedAt, paidAt
 -------------TAKA has a unified ContactForm system used in multiple contexts:
 
     B2C landing contact form (public, tied to a specific Event)
-    B2B inquiry form (public, tied to an Event type / "hike type")
+    B2B inquiry form (public, optionally asks for a free-text "hike type" dropdown defined per landing)
     Optional embeddable modes in later stages
 
 All forms share a core structure, then diverge by "mode" (B2C vs B2B).7.2. Common field model
@@ -518,7 +519,7 @@ The old “Unable to start registration” behaviour must be replaced by “alwa
 ------------------------------------Context:
 
     Used by companies to request a private or custom hike.
-    Not tied to a specific event instance, but to an "event type" / hike type.
+    Not tied to a specific event instance. Admins can optionally add a per-landing dropdown for "hike type" with free-text options; otherwise no type selection is shown.
 
 Form fields (UI):
 
@@ -530,7 +531,7 @@ Form fields (UI):
     `Email` (required)
     `Phone` (required)
     `Company email` + `company phone` fields map 1:1 to DB.
-    `Hike type` (select from Event Types, required – stored via `eventTypeId`)
+    `Hike type` dropdown (optional, defined per landing; stored as free-text `requestedHikeType`)
     `Estimated participant count` (optional integer)
     `Preferred date or time window` (optional text)
     `Message` (optional)
@@ -542,7 +543,7 @@ Important:
     **No ticket count price calculation** is displayed.
     Submission creates/updates a `B2BLead` record with:
         `companyName`, `companyPerson`, `companyEmail`, `companyPhone`
-        `eventTypeId`
+        `requestedHikeType` (when the dropdown is enabled)
         `participantEstimate`, `preferredDate`, `comment`
         `marketingConsent` flag + consent record
         `status` transitions `draft → open`

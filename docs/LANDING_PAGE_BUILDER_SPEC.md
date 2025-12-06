@@ -505,7 +505,9 @@ The landing contact form aligns with the unified B2C/B2B spec and the new design
 - Block JSON stores:
   - `mode: "b2c" | "b2b"`
   - `allowedEventIds: string[]` (B2C mode)
-  - `allowedEventTypeIds: string[]` (B2B mode)
+  - `showHikeTypeField: boolean` (B2B mode)
+  - `hikeTypeLabel: string` (per-block label for the optional dropdown)
+  - `hikeTypeOptions: string[]` (free-text options shown when the toggle is enabled)
   - `testimonials: Array<{ author: string; quote: string; rating?: number }>` for the left-hand swiper panel.
 
 #### B2C configuration (Privātpersonām)
@@ -519,7 +521,9 @@ The landing contact form aligns with the unified B2C/B2B spec and the new design
 
 #### B2B configuration (Uzņēmumiem)
 
-- Admin selects Event Types (hike types) rather than events.
+- Admin can toggle “Ask for hike type?” to surface a dropdown backed by free-text options (not tied to Event Types).
+  - When enabled the builder requires a field label and at least one option.
+  - Options display exactly as entered in the public form.
 - Form exposes company name, contact person, email, phone, participants count, preferred date, comment, and marketing consent.
 - No pricing/total fields are shown in this mode.
 
@@ -530,7 +534,7 @@ The landing contact form aligns with the unified B2C/B2B spec and the new design
 #### Registration behavior
 
 - B2C submissions create/update `EventParticipant` rows with attribution (`landingId`), `marketingConsent`, `priceAtTheMoment`, and the new `registrationStatus` enum.
-- B2B submissions create/update `B2BLead` rows with company/contact fields, `eventTypeId`, and `status` transitions (`draft` → `open`).
+- B2B submissions create/update `B2BLead` rows with company/contact fields, the optional `requestedHikeType`, and `status` transitions (`draft` → `open`).
 - Auto-save triggers after the first required field blur so partial data is never lost.
 Blocks cannot be re-arranged by drag and drop.
 Reordering is performed only by:

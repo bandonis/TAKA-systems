@@ -14,11 +14,6 @@ export type PublicContactEventOption = {
   earlyBirdDeadline: string | null;
 };
 
-export type ContactEventTypeOption = {
-  id: string;
-  name: string;
-};
-
 export type ContactTestimonial = ContactFormConfig['testimonials'][number];
 
 export type ContactResources = {
@@ -27,7 +22,6 @@ export type ContactResources = {
   landingId: string;
   config: ContactFormConfig;
   events: PublicContactEventOption[];
-  eventTypes: ContactEventTypeOption[];
   paymentMode: 'STRIPE' | 'MANUAL';
   currency: string;
   copy: ReturnType<typeof getContactFormCopy>;
@@ -73,14 +67,6 @@ export async function buildContactResources({
       })
     : [];
 
-  const eventTypes = config.allowedEventTypeIds.length
-    ? await prisma.eventType.findMany({
-        where: { tenantId, id: { in: config.allowedEventTypeIds } },
-        select: { id: true, name: true },
-        orderBy: { name: 'asc' }
-      })
-    : [];
-
   const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
 
   const formattedEvents: PublicContactEventOption[] = events.map((event) => ({
@@ -94,11 +80,6 @@ export async function buildContactResources({
     earlyBirdDeadline: event.earlyBirdDeadline ? event.earlyBirdDeadline.toISOString() : null
   }));
 
-  const formattedEventTypes: ContactEventTypeOption[] = eventTypes.map((type) => ({
-    id: type.id,
-    name: type.name
-  }));
-
   const copy = getContactFormCopy(tenantSettings?.contactFormCopy);
 
   return {
@@ -107,7 +88,6 @@ export async function buildContactResources({
     landingId,
     config,
     events: formattedEvents,
-    eventTypes: formattedEventTypes,
     paymentMode: (tenantSettings?.paymentMode ?? 'STRIPE') as 'STRIPE' | 'MANUAL',
     currency: tenantSettings?.currency ?? 'EUR',
     copy,

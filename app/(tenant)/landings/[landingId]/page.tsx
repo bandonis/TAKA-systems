@@ -27,11 +27,6 @@ type EventOption = {
   dateLabel: string;
 };
 
-type EventTypeOption = {
-  id: string;
-  name: string;
-};
-
 const blockOptionsForAdd = BLOCK_VARIANTS.map((variant) => ({
   id: variant.id,
   label: variant.label,
@@ -41,7 +36,9 @@ const blockOptionsForAdd = BLOCK_VARIANTS.map((variant) => ({
 const EMPTY_CONTACT_CONFIG: ContactFormConfig = {
   mode: 'b2c',
   allowedEventIds: [],
-  allowedEventTypeIds: [],
+  showHikeTypeField: false,
+  hikeTypeLabel: 'Hike type',
+  hikeTypeOptions: [],
   testimonials: []
 };
 
@@ -50,7 +47,6 @@ export default async function LandingDetailPage({ params }: { params: Promise<{ 
   const { landing, tenant } = await getLandingData(landingId);
   const tenantSlug = getTenantPublicSlug(tenant);
   const events = await getUpcomingEvents(tenant.id);
-  const eventTypes = await getEventTypes(tenant.id);
   const publicPath = getLandingPublicPath({ tenantSlug, landingSlug: landing.slug });
 
   const hasContactBlock = landing.blocks.some((block) => isContactFormBlock(block));
@@ -129,7 +125,6 @@ export default async function LandingDetailPage({ params }: { params: Promise<{ 
                   isContactForm={isContactForm}
                   contactConfig={contactConfig}
                   events={events}
-                  eventTypes={eventTypes}
                 />
               );
             })
@@ -225,18 +220,5 @@ async function getUpcomingEvents(tenantId: string): Promise<EventOption[]> {
     title: event.title,
     dateLabel: formatter.format(event.date)
   }));
-}
-
-async function getEventTypes(tenantId: string): Promise<EventTypeOption[]> {
-  const prisma = getPrisma();
-  const types = await prisma.eventType.findMany({
-    where: { tenantId },
-    orderBy: { name: 'asc' },
-    select: {
-      id: true,
-      name: true
-    }
-  });
-  return types;
 }
 

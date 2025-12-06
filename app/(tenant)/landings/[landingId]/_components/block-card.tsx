@@ -14,11 +14,6 @@ type EventOption = {
   dateLabel: string;
 };
 
-type EventTypeOption = {
-  id: string;
-  name: string;
-};
-
 type BlockCardProps = {
   landingId: string;
   blockId: string;
@@ -33,13 +28,14 @@ type BlockCardProps = {
   isContactForm: boolean;
   contactConfig: ContactFormConfig;
   events: EventOption[];
-  eventTypes: EventTypeOption[];
 };
 
 const EMPTY_CONTACT_CONFIG: ContactFormConfig = {
   mode: 'b2c',
   allowedEventIds: [],
-  allowedEventTypeIds: [],
+  showHikeTypeField: false,
+  hikeTypeLabel: 'Hike type',
+  hikeTypeOptions: [],
   testimonials: []
 };
 
@@ -136,7 +132,9 @@ export function BlockCard(props: BlockCardProps) {
           action: 'contactConfig',
           mode: nextConfig.mode,
           allowedEventIds: nextConfig.allowedEventIds,
-          allowedEventTypeIds: nextConfig.allowedEventTypeIds,
+          showHikeTypeField: nextConfig.showHikeTypeField,
+          hikeTypeLabel: nextConfig.hikeTypeLabel,
+          hikeTypeOptions: nextConfig.hikeTypeOptions,
           testimonials: nextConfig.testimonials
         })
       },
@@ -149,7 +147,9 @@ export function BlockCard(props: BlockCardProps) {
   const contactWarning =
     props.isContactForm &&
     ((contactConfigState.mode === 'b2c' && contactConfigState.allowedEventIds.length === 0) ||
-      (contactConfigState.mode === 'b2b' && contactConfigState.allowedEventTypeIds.length === 0));
+      (contactConfigState.mode === 'b2b' &&
+        contactConfigState.showHikeTypeField &&
+        (contactConfigState.hikeTypeLabel.trim().length === 0 || contactConfigState.hikeTypeOptions.length === 0)));
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card/30 p-4">
@@ -204,7 +204,6 @@ export function BlockCard(props: BlockCardProps) {
         <ContactConfigurator
           config={contactConfigState}
           events={props.events}
-          eventTypes={props.eventTypes}
           disabled={isPending}
           warning={contactWarning}
           onConfigChange={applyContactConfig}
@@ -247,13 +246,12 @@ function VisibilityToggle({ label, icon, active, disabled, onClick }: { label: s
 type ContactConfiguratorProps = {
   config: ContactFormConfig;
   events: EventOption[];
-  eventTypes: EventTypeOption[];
   disabled: boolean;
   warning: boolean;
   onConfigChange: (nextConfig: ContactFormConfig) => void;
 };
 
-function ContactConfigurator({ config, events, eventTypes, disabled, warning, onConfigChange }: ContactConfiguratorProps) {
+function ContactConfigurator({ config, events, disabled, warning, onConfigChange }: ContactConfiguratorProps) {
   const updateMode = (mode: ContactFormConfig['mode']) => {
     if (mode === config.mode) {
       return;
@@ -271,14 +269,24 @@ function ContactConfigurator({ config, events, eventTypes, disabled, warning, on
     onConfigChange({ ...config, allowedEventIds: Array.from(set) });
   };
 
-  const toggleEventType = (typeId: string, checked: boolean) => {
-    const set = new Set(config.allowedEventTypeIds);
-    if (checked) {
-      set.add(typeId);
-    } else {
-      set.delete(typeId);
-    }
-    onConfigChange({ ...config, allowedEventTypeIds: Array.from(set) });
+  const handleHikeToggle = (checked: boolean) => {
+    onConfigChange({
+      ...config,
+      showHikeTypeField: checked
+    });
+  };
+
+  const updateHikeLabel = (value: string) => {
+    onConfigChange({ ...config, hikeTypeLabel: value });
+  };
+
+  const updateHikeOptions = (value: string) => {
+    const options = value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    const unique = Array.from(new Set(options));
+    onConfigChange({ ...config, hikeTypeOptions: unique });
   };
 
   const updateTestimonial = (id: string, partial: Partial<ContactFormTestimonial>) => {
@@ -359,37 +367,44 @@ function ContactConfigurator({ config, events, eventTypes, disabled, warning, on
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Allowed event types ({config.allowedEventTypeIds.length})</p>
-            {eventTypes.length === 0 && (
-              <p className="text-xs text-muted-foreground">No event types yet. Create one in Events → Types.</p>
-            )}
-          </div>
-          {eventTypes.length > 0 && (
-            <div className="space-y-2">
-              {eventTypes.map((eventType) => {
-                const isSelected = config.allowedEventTypeIds.includes(eventType.id);
-                return (
-                  <label
-                    key={eventType.id}
-                    className={`flex w-full items-center justify-between rounded-md border p-3 text-left transition ${
-                      isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/60'
-                    }`}
-                  >
-                    <span className="text-sm font-semibold text-foreground">{eventType.name}</span>
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
-                      checked={isSelected}
-                      onChange={(event) => toggleEventType(eventType.id, event.target.checked)}
-                      disabled={disabled}
-                    />
-                  </label>
-                );
-              })}
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 text-sm font-medium text-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
+              checked={config.showHikeTypeField}
+              onChange={(event) => handleHikeToggle(event.target.checked)}
+              disabled={disabled}
+            />
+            Ask for hike type?
+          </label>
+          <p className="text-xs text-muted-foreground">
+            These options will appear in the B2B contact form as a dropdown. They are not linked to Events yet.
+          </p>
+          {config.showHikeTypeField ? (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Field label</label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                  value={config.hikeTypeLabel}
+                  maxLength={80}
+                  onChange={(event) => updateHikeLabel(event.target.value)}
+                  disabled={disabled}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Options (one per line)</label>
+                <textarea
+                  className="h-28 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                  value={config.hikeTypeOptions.join('\n')}
+                  onChange={(event) => updateHikeOptions(event.target.value)}
+                  disabled={disabled}
+                />
+              </div>
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -466,7 +481,7 @@ function ContactConfigurator({ config, events, eventTypes, disabled, warning, on
         <p className="text-xs font-medium text-amber-600">
           {config.mode === 'b2c'
             ? 'Contact form requires at least one allowed event.'
-            : 'Contact form requires at least one event type.'}
+            : 'Contact form requires at least one hike type option.'}
         </p>
       )}
     </div>
@@ -479,7 +494,9 @@ function normalizeContactConfig(config: ContactFormConfig): ContactFormConfig {
   return {
     mode: config.mode === 'b2b' ? 'b2b' : 'b2c',
     allowedEventIds: dedupeEventIds(config.allowedEventIds),
-    allowedEventTypeIds: dedupeEventIds(config.allowedEventTypeIds),
+    showHikeTypeField: Boolean(config.showHikeTypeField),
+    hikeTypeLabel: config.hikeTypeLabel?.trim() || 'Hike type',
+    hikeTypeOptions: normalizeHikeOptions(config.hikeTypeOptions ?? []),
     testimonials: config.testimonials.map((item, index) => ({
       id: item.id || `testimonial-${index}`,
       author: item.author,
@@ -487,5 +504,19 @@ function normalizeContactConfig(config: ContactFormConfig): ContactFormConfig {
       rating: item.rating
     }))
   };
+}
+
+function normalizeHikeOptions(options: string[]): string[] {
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const option of options) {
+    const trimmed = option.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    next.push(trimmed);
+  }
+  return next;
 }
 

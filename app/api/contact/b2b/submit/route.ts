@@ -8,7 +8,6 @@ import { recordMarketingConsent } from '@/lib/contact/consent';
 const submitSchema = z.object({
   landingId: z.string().cuid(),
   leadId: z.string().cuid(),
-  eventTypeId: z.string().cuid(),
   tenantSlug: z.string().min(1),
   companyName: z.string().max(120).optional(),
   companyPerson: z.string().max(120).optional(),
@@ -17,7 +16,8 @@ const submitSchema = z.object({
   participantEstimate: z.number().int().min(1).max(1000).optional(),
   preferredDate: z.string().max(160).optional(),
   message: z.string().max(1000).optional(),
-  marketingConsent: z.boolean().optional()
+  marketingConsent: z.boolean().optional(),
+  requestedHikeType: z.string().max(120).optional()
 });
 
 export const runtime = "nodejs";
@@ -39,18 +39,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Contact form is not in B2B mode' }, { status: 400 });
     }
 
-    if (!config.allowedEventTypeIds.includes(input.eventTypeId)) {
-      return NextResponse.json({ error: 'Event type is not allowed for this landing' }, { status: 400 });
+    const hikeTypeEnabled = config.showHikeTypeField && config.hikeTypeOptions.length > 0;
+    const normalizedHikeType = input.requestedHikeType?.trim() ?? null;
+    if (normalizedHikeType && hikeTypeEnabled && !config.hikeTypeOptions.includes(normalizedHikeType)) {
+      return NextResponse.json({ error: 'Hike type is not allowed for this landing' }, { status: 400 });
     }
-
-    const eventType = await prisma.eventType.findFirst({
-      where: { id: input.eventTypeId, tenantId },
-      select: { id: true, name: true }
-    });
-
-    if (!eventType) {
-      return NextResponse.json({ error: 'Event type not found' }, { status: 404 });
-    }
+    const requestedHikeType = hikeTypeEnabled ? normalizedHikeType : null;
 
     const lead = await prisma.b2BLead.findFirst({
       where: { id: input.leadId, tenantId }
@@ -76,8 +70,9 @@ export async function POST(req: Request) {
         ticketCount: input.participantEstimate ?? null,
         preferredDate: input.preferredDate ?? null,
         comment: input.message ?? null,
-        eventTypeId: eventType.id,
-        eventType: eventType.name,
+        eventTypeId: null,
+        eventType: requestedHikeType,
+        requestedHikeType,
         status: 'OPEN'
       }
     });

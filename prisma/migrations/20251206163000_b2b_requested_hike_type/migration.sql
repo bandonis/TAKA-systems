@@ -1,0 +1,2 @@
+ALTER TABLE "B2BLead"
+  ADD COLUMN IF NOT EXISTS "requestedHikeType" TEXT;

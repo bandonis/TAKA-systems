@@ -29,7 +29,9 @@ const updateBlockSchema = z.discriminatedUnion('action', [
     action: z.literal('contactConfig'),
     mode: z.enum(['b2c', 'b2b']),
     allowedEventIds: z.array(z.string()),
-    allowedEventTypeIds: z.array(z.string()),
+    showHikeTypeField: z.boolean().optional(),
+    hikeTypeLabel: z.string().max(80).optional(),
+    hikeTypeOptions: z.array(z.string()),
     testimonials: z.array(testimonialSchema)
   })
 ]);
@@ -82,7 +84,15 @@ export const PATCH = withTenantRoute<{ landingId: string; blockId: string }>(
     }
 
     const uniqueEventIds = Array.from(new Set(input.allowedEventIds));
-    const uniqueEventTypeIds = Array.from(new Set(input.allowedEventTypeIds));
+    const showHikeTypeField = input.showHikeTypeField === true;
+    const hikeTypeLabel = (input.hikeTypeLabel ?? 'Hike type').trim() || 'Hike type';
+    const hikeTypeOptions = Array.from(
+      new Set(
+        input.hikeTypeOptions
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      )
+    );
 
     if (uniqueEventIds.length > 0) {
       const validCount = await prisma.event.count({
@@ -97,17 +107,8 @@ export const PATCH = withTenantRoute<{ landingId: string; blockId: string }>(
       }
     }
 
-    if (uniqueEventTypeIds.length > 0) {
-      const validTypes = await prisma.eventType.count({
-        where: {
-          tenantId: tenant.tenantId,
-          id: { in: uniqueEventTypeIds }
-        }
-      });
-
-      if (validTypes !== uniqueEventTypeIds.length) {
-        throw new BadRequestError('One or more event types are invalid.');
-      }
+    if (showHikeTypeField && hikeTypeOptions.length === 0) {
+      throw new BadRequestError('At least one hike type option is required when the field is enabled.');
     }
 
     const testimonials = input.testimonials.map((item, index) => ({
@@ -123,7 +124,9 @@ export const PATCH = withTenantRoute<{ landingId: string; blockId: string }>(
         content: (buildContactFormContent(block, {
           mode: input.mode,
           allowedEventIds: uniqueEventIds,
-          allowedEventTypeIds: uniqueEventTypeIds,
+          showHikeTypeField,
+          hikeTypeLabel,
+          hikeTypeOptions,
           testimonials
         }) ?? Prisma.JsonNull) as Prisma.InputJsonValue
       }

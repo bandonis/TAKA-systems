@@ -261,6 +261,7 @@ model B2BLead {
   ticketCount         Int?
   eventType           String?
   eventTypeId         String?
+  requestedHikeType   String?
   priceAtTheMoment    Decimal?  @db.Decimal(12, 2)
   comment             String?
   preferredDate       String?

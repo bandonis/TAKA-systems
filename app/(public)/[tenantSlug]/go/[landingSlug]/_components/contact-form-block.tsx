@@ -1,7 +1,7 @@
 "use client";
 
-import type { ChangeEvent, ComponentProps } from 'react';
-import { useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { ContactFormCopy } from '@/lib/contact/copy';
 import type { ContactFormConfig } from '@/lib/landings/blocks';
@@ -21,11 +21,6 @@ export type ContactEventOption = {
   earlyBirdDeadline: string | null;
 };
 
-export type ContactEventTypeOption = {
-  id: string;
-  name: string;
-};
-
 export type ContactTestimonial = ContactFormConfig['testimonials'][number];
 
 type ContactFormBlockProps = {
@@ -34,7 +29,6 @@ type ContactFormBlockProps = {
   landingId: string;
   config: ContactFormConfig;
   events: ContactEventOption[];
-  eventTypes: ContactEventTypeOption[];
   paymentMode: 'STRIPE' | 'MANUAL';
   currency: string;
   copy: ContactFormCopy;
@@ -106,6 +100,19 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
     marketingConsent: true
   });
 
+  useEffect(() => {
+    setForm((previous) => {
+      if (events.length === 0) {
+        return previous.eventId === '' ? previous : { ...previous, eventId: '' };
+      }
+      const stillValid = events.some((event) => event.id === previous.eventId);
+      if (stillValid) {
+        return previous;
+      }
+      return { ...previous, eventId: events[0].id };
+    });
+  }, [events]);
+
   const eventMap = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
 
   const pricePreview = computePricePreview(eventMap.get(form.eventId), form.ticketCount);
@@ -120,7 +127,9 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
       : `${copy.earlyBirdLabel} ${formatted}`;
   }, [pricePreview?.earlyBirdDeadline, copy.earlyBirdLabel]);
 
-  const shouldAutosave = () => form.email.trim().length > 0 && form.eventId;
+  const hasEvents = events.length > 0;
+
+  const shouldAutosave = () => form.email.trim().length > 0 && Boolean(form.eventId);
 
   const triggerAutosave = async (): Promise<string | null> => {
     if (!shouldAutosave()) {
@@ -160,6 +169,16 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitState === 'submitting') return;
+    if (!hasEvents) {
+      setErrorMessage('No hikes are available right now. Please check back soon.');
+      setSubmitState('error');
+      return;
+    }
+    if (!form.eventId) {
+      setErrorMessage('Select a hike date to continue.');
+      setSubmitState('error');
+      return;
+    }
     setSubmitState('submitting');
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -300,23 +319,41 @@ function B2CForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
       {autoSaveState === 'error' && <p className="text-xs text-amber-200">Could not save your progress automatically.</p>}
       {errorMessage && <p className="text-sm text-red-300">{errorMessage}</p>}
       {successMessage && <p className="text-sm text-emerald-200">{successMessage}</p>}
-      <Button type="submit" className="w-full bg-amber-400 text-emerald-900" disabled={submitState === 'submitting'}>
+      <Button
+        type="submit"
+        className="w-full bg-amber-400 text-emerald-900"
+        disabled={submitState === 'submitting' || !hasEvents}
+      >
         {submitState === 'submitting' ? 'Submitting…' : copy.submitLabelB2C}
       </Button>
     </form>
   );
 }
 
-function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode']; onModeChange: (mode: ContactFormConfig['mode']) => void }) {
-  const { eventTypes, landingId, tenantSlug, landingSlug, copy } = props;
-  const defaultTypeId = eventTypes[0]?.id ?? '';
+function B2BForm(
+  props: ContactFormBlockProps & { mode: ContactFormConfig['mode']; onModeChange: (mode: ContactFormConfig['mode']) => void }
+) {
+  const { config, landingId, tenantSlug, landingSlug, copy } = props;
+  const hikeTypeEnabled = config.showHikeTypeField && config.hikeTypeOptions.length > 0;
+  const hikeTypeLabel = config.hikeTypeLabel || copy.eventTypeLabel;
+  const hikeTypeOptions = hikeTypeEnabled ? config.hikeTypeOptions : [];
   const [leadId, setLeadId] = useState<string | null>(null);
   const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    eventTypeId: defaultTypeId,
+  const [form, setForm] = useState<{
+    requestedHikeType: string;
+    companyName: string;
+    companyPerson: string;
+    email: string;
+    phone: string;
+    participantEstimate: number | null;
+    preferredDate: string;
+    message: string;
+    marketingConsent: boolean;
+  }>({
+    requestedHikeType: '',
     companyName: '',
     companyPerson: '',
     email: '',
@@ -327,7 +364,19 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
     marketingConsent: true
   });
 
-  const shouldAutosave = () => form.email.trim().length > 0 && form.eventTypeId;
+  useEffect(() => {
+    setForm((previous) => {
+      if (!hikeTypeEnabled) {
+        return previous.requestedHikeType === '' ? previous : { ...previous, requestedHikeType: '' };
+      }
+      if (previous.requestedHikeType && hikeTypeOptions.includes(previous.requestedHikeType)) {
+        return previous;
+      }
+      return { ...previous, requestedHikeType: '' };
+    });
+  }, [hikeTypeEnabled, hikeTypeOptions.join('|')]);
+
+  const shouldAutosave = () => form.email.trim().length > 0;
 
   const triggerAutosave = async (): Promise<string | null> => {
     if (!shouldAutosave()) {
@@ -340,16 +389,16 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           landingId,
-          eventTypeId: form.eventTypeId,
           leadId,
           companyName: form.companyName,
           companyPerson: form.companyPerson,
           email: form.email,
           phone: form.phone,
-          participantEstimate: form.participantEstimate,
+          ...(form.participantEstimate != null ? { participantEstimate: form.participantEstimate } : {}),
           preferredDate: form.preferredDate,
           message: form.message,
-          marketingConsent: form.marketingConsent
+          marketingConsent: form.marketingConsent,
+          requestedHikeType: form.requestedHikeType || undefined
         })
       });
       const payload = (await response.json().catch(() => null)) as { leadId?: string } | { error?: string } | null;
@@ -369,6 +418,11 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitState === 'submitting') return;
+    if (hikeTypeEnabled && !form.requestedHikeType) {
+      setErrorMessage('Select a hike type to continue.');
+      setSubmitState('error');
+      return;
+    }
     setSubmitState('submitting');
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -391,16 +445,16 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
         body: JSON.stringify({
           landingId,
           leadId: currentLeadId,
-          eventTypeId: form.eventTypeId,
           tenantSlug,
           companyName: form.companyName,
           companyPerson: form.companyPerson,
           email: form.email,
           phone: form.phone,
-          participantEstimate: form.participantEstimate,
+          ...(form.participantEstimate != null ? { participantEstimate: form.participantEstimate } : {}),
           preferredDate: form.preferredDate,
           message: form.message,
-          marketingConsent: form.marketingConsent
+          marketingConsent: form.marketingConsent,
+          requestedHikeType: form.requestedHikeType || undefined
         })
       });
       const payload = (await response.json().catch(() => null)) as { status?: string; error?: string } | null;
@@ -456,29 +510,38 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
           onChange={(event) => setForm((prev) => ({ ...prev, companyPerson: event.target.value }))}
           onBlur={triggerAutosave}
         />
-        {eventTypes.length === 0 ? (
-          <p className="text-sm text-amber-200">No hike types are linked to this landing yet.</p>
-        ) : (
-          <SelectField
-            label={copy.eventTypeLabel}
-            value={form.eventTypeId}
-            placeholder={copy.eventPlaceholder}
-            options={eventTypes.map((type) => ({ value: type.id, label: type.name }))}
-            disabled={eventTypes.length === 0}
-            onChange={(value) => {
-              setForm((prev) => ({ ...prev, eventTypeId: value }));
-              void triggerAutosave();
-            }}
-          />
-        )}
+        {config.showHikeTypeField ? (
+          hikeTypeEnabled ? (
+            <SelectField
+              label={hikeTypeLabel}
+              value={form.requestedHikeType}
+              placeholder={copy.eventPlaceholder}
+              options={hikeTypeOptions.map((option) => ({ value: option, label: option }))}
+              onChange={(value) => {
+                setForm((prev) => ({ ...prev, requestedHikeType: value }));
+                void triggerAutosave();
+              }}
+            />
+          ) : (
+            <p className="text-sm text-amber-200">
+              Add at least one hike type option in the builder to show a dropdown here.
+            </p>
+          )
+        ) : null}
         <InputField
           label={copy.participantsLabel}
           type="number"
           min={1}
           value={String(form.participantEstimate ?? '')}
-          onChange={(event) =>
-            setForm((prev) => ({ ...prev, participantEstimate: Number(event.target.value) || 0 }))
-          }
+          onChange={(event) => {
+            const raw = event.target.value;
+            const parsed = Number(raw);
+            setForm((prev) => ({
+              ...prev,
+              participantEstimate:
+                raw.trim().length === 0 || Number.isNaN(parsed) ? null : Math.max(1, parsed)
+            }));
+          }}
           onBlur={triggerAutosave}
         />
         <InputField
@@ -507,7 +570,11 @@ function B2BForm(props: ContactFormBlockProps & { mode: ContactFormConfig['mode'
       {autoSaveState === 'error' && <p className="text-xs text-amber-200">Could not save your progress automatically.</p>}
       {errorMessage && <p className="text-sm text-red-300">{errorMessage}</p>}
       {successMessage && <p className="text-sm text-emerald-200">{successMessage}</p>}
-      <Button type="submit" className="w-full bg-amber-400 text-emerald-900" disabled={submitState === 'submitting'}>
+      <Button
+        type="submit"
+        className="w-full bg-amber-400 text-emerald-900"
+        disabled={submitState === 'submitting'}
+      >
         {submitState === 'submitting' ? 'Sending…' : copy.submitLabelB2B}
       </Button>
     </form>
@@ -582,7 +649,7 @@ function TestimonialsPanel({ testimonials }: { testimonials: ContactTestimonial[
 
   if (testimonials.length === 0) {
     return (
-      <div className="hidden rounded-3xl bg-emerald-800/40 p-6 text-white lg:flex lg:flex-col lg:items-center lg:justify-center">
+      <div className="rounded-3xl bg-emerald-800/40 p-6 text-white flex flex-col items-center justify-center text-center">
         <p className="text-sm text-white/70">Add testimonials in the builder to show customer love here.</p>
       </div>
     );
@@ -591,9 +658,9 @@ function TestimonialsPanel({ testimonials }: { testimonials: ContactTestimonial[
   const active = testimonials[index % testimonials.length];
 
   return (
-    <div className="hidden rounded-3xl bg-emerald-800/40 p-6 text-white lg:flex lg:flex-col">
+    <div className="rounded-3xl bg-emerald-800/40 p-6 text-white flex flex-col">
       <div className="space-y-3">
-          <div className="text-5xl text-amber-300">“</div>
+        <div className="text-5xl text-amber-300">“</div>
         <p className="text-lg font-semibold leading-snug">{active.quote}</p>
         <p className="text-sm text-white/70">{active.author}</p>
       </div>

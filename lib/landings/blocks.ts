@@ -39,7 +39,9 @@ export type ContactFormMode = 'b2c' | 'b2b';
 export type ContactFormConfig = {
   mode: ContactFormMode;
   allowedEventIds: string[];
-  allowedEventTypeIds: string[];
+  showHikeTypeField: boolean;
+  hikeTypeLabel: string;
+  hikeTypeOptions: string[];
   testimonials: ContactFormTestimonial[];
 };
 
@@ -47,7 +49,9 @@ export function getDefaultContactFormConfig(): ContactFormConfig {
   return {
     mode: 'b2c',
     allowedEventIds: [],
-    allowedEventTypeIds: [],
+    showHikeTypeField: false,
+    hikeTypeLabel: 'Hike type',
+    hikeTypeOptions: [],
     testimonials: []
   };
 }
@@ -143,7 +147,9 @@ export const BLOCK_VARIANTS: BlockVariantDefinition[] = [
       config: {
         mode: 'b2c',
         allowedEventIds: [],
-        allowedEventTypeIds: [],
+        showHikeTypeField: false,
+        hikeTypeLabel: 'Hike type',
+        hikeTypeOptions: [],
         testimonials: []
       },
       variant: CONTACT_FORM_VARIANT
@@ -192,11 +198,9 @@ function normalizeTestimonials(value: unknown): ContactFormTestimonial[] {
     return [];
   }
   const testimonials: ContactFormTestimonial[] = [];
-  let index = 0;
 
-  for (const item of value) {
+  for (const [index, item] of value.entries()) {
     if (!isPlainObject(item) || typeof item.quote !== 'string' || typeof item.author !== 'string') {
-      index += 1;
       continue;
     }
 
@@ -209,11 +213,29 @@ function normalizeTestimonials(value: unknown): ContactFormTestimonial[] {
       quote: item.quote,
       rating: ratingValue
     });
-
-    index += 1;
   }
 
   return testimonials;
+}
+
+function normalizeStringOptions(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const options: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') {
+      continue;
+    }
+    const trimmed = item.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    options.push(trimmed);
+  }
+  return options;
 }
 
 export function getContactFormConfig(block: Pick<LandingBlock, 'content'>): ContactFormConfig {
@@ -226,9 +248,12 @@ export function getContactFormConfig(block: Pick<LandingBlock, 'content'>): Cont
       allowedEventIds: Array.isArray(maybeConfig.allowedEventIds)
         ? (maybeConfig.allowedEventIds as string[]).filter((id): id is string => typeof id === 'string')
         : [],
-      allowedEventTypeIds: Array.isArray(maybeConfig.allowedEventTypeIds)
-        ? (maybeConfig.allowedEventTypeIds as string[]).filter((id): id is string => typeof id === 'string')
-        : [],
+      showHikeTypeField: maybeConfig.showHikeTypeField === true,
+      hikeTypeLabel:
+        typeof maybeConfig.hikeTypeLabel === 'string' && maybeConfig.hikeTypeLabel.trim().length > 0
+          ? maybeConfig.hikeTypeLabel.trim()
+          : 'Hike type',
+      hikeTypeOptions: normalizeStringOptions(maybeConfig.hikeTypeOptions),
       testimonials: normalizeTestimonials(maybeConfig.testimonials)
     };
   }
@@ -242,7 +267,9 @@ export function buildContactFormContent(block: Pick<LandingBlock, 'content'>, co
     ...(isPlainObject(parsed.config) ? parsed.config : {}),
     mode: config.mode,
     allowedEventIds: config.allowedEventIds,
-    allowedEventTypeIds: config.allowedEventTypeIds,
+    showHikeTypeField: config.showHikeTypeField,
+    hikeTypeLabel: config.hikeTypeLabel,
+    hikeTypeOptions: config.hikeTypeOptions,
     testimonials: config.testimonials
   };
 
