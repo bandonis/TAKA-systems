@@ -8,6 +8,13 @@ import { withTenantRoute, BadRequestError, NotFoundError } from '@/lib/tenants';
 
 export const runtime = "nodejs";
 
+const testimonialSchema = z.object({
+  id: z.string().optional(),
+  author: z.string().min(1),
+  quote: z.string().min(1),
+  rating: z.number().min(1).max(5).optional()
+});
+
 const updateBlockSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('move'),
@@ -20,7 +27,10 @@ const updateBlockSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('contactConfig'),
-    allowedEventIds: z.array(z.string())
+    mode: z.enum(['b2c', 'b2b']),
+    allowedEventIds: z.array(z.string()),
+    allowedEventTypeIds: z.array(z.string()),
+    testimonials: z.array(testimonialSchema)
   })
 ]);
 
@@ -72,6 +82,7 @@ export const PATCH = withTenantRoute<{ landingId: string; blockId: string }>(
     }
 
     const uniqueEventIds = Array.from(new Set(input.allowedEventIds));
+    const uniqueEventTypeIds = Array.from(new Set(input.allowedEventTypeIds));
 
     if (uniqueEventIds.length > 0) {
       const validCount = await prisma.event.count({
@@ -86,11 +97,35 @@ export const PATCH = withTenantRoute<{ landingId: string; blockId: string }>(
       }
     }
 
+    if (uniqueEventTypeIds.length > 0) {
+      const validTypes = await prisma.eventType.count({
+        where: {
+          tenantId: tenant.tenantId,
+          id: { in: uniqueEventTypeIds }
+        }
+      });
+
+      if (validTypes !== uniqueEventTypeIds.length) {
+        throw new BadRequestError('One or more event types are invalid.');
+      }
+    }
+
+    const testimonials = input.testimonials.map((item, index) => ({
+      id: item.id ?? `testimonial-${index}`,
+      author: item.author,
+      quote: item.quote,
+      rating: item.rating
+    }));
+
     await prisma.landingBlock.update({
       where: { id: block.id },
       data: {
-        content: (buildContactFormContent(block, { allowedEventIds: uniqueEventIds }) ??
-          Prisma.JsonNull) as Prisma.InputJsonValue
+        content: (buildContactFormContent(block, {
+          mode: input.mode,
+          allowedEventIds: uniqueEventIds,
+          allowedEventTypeIds: uniqueEventTypeIds,
+          testimonials
+        }) ?? Prisma.JsonNull) as Prisma.InputJsonValue
       }
     });
 

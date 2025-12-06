@@ -2,19 +2,21 @@ import { notFound } from 'next/navigation';
 
 import { getPrisma } from '@/lib/db';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { TENANT_STATUS } from '@/lib/prisma/enums';
+import type { ContactFormCopy } from '@/lib/contact/copy';
+import { getContactFormCopy } from '@/lib/contact/copy';
 import {
   getContactFormConfig,
+  isContactFormBlock,
   parseBlockContent,
   resolveVariantIdForBlock,
   type BlockContent,
-  type BlockVariantId
+  type BlockVariantId,
+  type ContactFormConfig
 } from '@/lib/landings/blocks';
 import type { LandingBlockType, Prisma } from '@prisma/client';
+import { ContactFormBlock, type ContactEventOption as PublicContactEventOption, type ContactEventTypeOption, type ContactTestimonial } from './_components/contact-form-block';
 
 export const runtime = "nodejs";
 
@@ -94,7 +96,23 @@ export default async function PublicLandingPage({ params }: PublicLandingPagePro
     notFound();
   }
 
-  const contactEventLookup = await loadContactEvents(prisma, tenant.id, blocks);
+  const tenantSettings = await prisma.tenantSettings.findUnique({
+    where: { tenantId: tenant.id },
+    select: { paymentMode: true, currency: true, contactFormCopy: true }
+  });
+
+  const contactBlockRecord = blocks.find((block) => isContactFormBlock(block));
+  const contactResources = contactBlockRecord
+    ? await buildContactResources({
+        prisma,
+        tenantSlug,
+        landingSlug,
+        tenantId: tenant.id,
+        landingId: landing.id,
+        config: getContactFormConfig(contactBlockRecord),
+        tenantSettings
+      })
+    : null;
 
   const isDraft = landing.status !== 'PUBLISHED';
 
@@ -130,7 +148,7 @@ export default async function PublicLandingPage({ params }: PublicLandingPagePro
                 content,
                 tenantName: tenant.name,
                 landingTitle: landing.title,
-                contactEventLookup
+                contactResources
               })}
             </section>
           );
@@ -146,7 +164,7 @@ type RenderLandingBlockArgs = {
   content: BlockContent;
   tenantName: string;
   landingTitle: string;
-  contactEventLookup: Map<string, ContactEventOption>;
+  contactResources: ContactResources | null;
 };
 
 function renderLandingBlock({
@@ -155,7 +173,7 @@ function renderLandingBlock({
   content,
   tenantName,
   landingTitle,
-  contactEventLookup
+  contactResources
 }: RenderLandingBlockArgs) {
   switch (variantId) {
     case 'hero':
@@ -173,7 +191,11 @@ function renderLandingBlock({
     case 'eventHighlight':
       return <EventHighlightBlock content={content} />;
     case 'contactForm':
-      return <ContactFormBlock block={block} content={content} contactEventLookup={contactEventLookup} />;
+      return contactResources ? (
+        <ContactFormBlock {...contactResources} />
+      ) : (
+        <p className="text-sm text-muted-foreground">Contact form is not available.</p>
+      );
     default:
       return <FallbackBlock blockType={block.blockType} content={content} />;
   }
@@ -320,86 +342,6 @@ function EventHighlightBlock({ content }: { content: BlockContent }) {
   );
 }
 
-function ContactFormBlock({
-  block,
-  content,
-  contactEventLookup
-}: {
-  block: LandingBlockRecord;
-  content: BlockContent;
-  contactEventLookup: Map<string, ContactEventOption>;
-}) {
-  const heading = safeString(content.heading, 'Contact us');
-  const description = safeString(content.description, 'Tell us a bit about yourself.');
-  const config = getContactFormConfig(block);
-  const events = config.allowedEventIds
-    .map((eventId) => contactEventLookup.get(eventId))
-    .filter((event): event is ContactEventOption => Boolean(event));
-
-  return (
-    <div className="space-y-4" id="contact">
-      <div>
-        <h3 className="text-2xl font-semibold tracking-tight">{heading}</h3>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
-      </div>
-
-      {events.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No upcoming events have been selected for this form yet.</p>
-      ) : (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Select an event</p>
-          <div className="space-y-2">
-            {events.map((event) => (
-              <label
-                key={event.id}
-                className="flex items-start gap-3 rounded-lg border border-border px-3 py-2 text-left"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
-                  name="eventIds"
-                  value={event.id}
-                />
-                <span className="flex flex-col">
-                  <span className="text-sm font-semibold text-foreground">{event.title}</span>
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">{event.dateLabel}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <form className="space-y-4" action="#">
-        <div className="space-y-2">
-          <Label htmlFor={`name-${block.id}`}>Name</Label>
-          <Input id={`name-${block.id}`} name="name" placeholder="Your name" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`email-${block.id}`}>Email</Label>
-          <Input id={`email-${block.id}`} name="email" type="email" placeholder="you@example.com" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`message-${block.id}`}>Message</Label>
-          <Textarea id={`message-${block.id}`} name="message" placeholder="Share a few details…" />
-        </div>
-        <Button type="button" className="w-full" disabled>
-          Submit (coming soon)
-        </Button>
-        <p className="text-xs text-muted-foreground">Demo only — submission wiring is coming soon.</p>
-      </form>
-    </div>
-  );
-}
-
-function FallbackBlock({ blockType, content }: { blockType: LandingBlockType; content: BlockContent }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-semibold text-muted-foreground">{blockType}</p>
-      <pre className="overflow-auto rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">{JSON.stringify(content, null, 2)}</pre>
-    </div>
-  );
-}
 
 function getVisibilityClass(visibleMobile: boolean, visibleDesktop: boolean) {
   if (!visibleMobile && !visibleDesktop) {
@@ -421,49 +363,3 @@ function safeString(value: unknown, fallback = '') {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
-
-async function loadContactEvents(prisma: ReturnType<typeof getPrisma>, tenantId: string, blocks: LandingBlockRecord[]) {
-  const allowedIds = new Set<string>();
-
-  for (const block of blocks) {
-    if (resolveVariantIdForBlock(block) === 'contactForm') {
-      const config = getContactFormConfig(block);
-      for (const id of config.allowedEventIds) {
-        allowedIds.add(id);
-      }
-    }
-  }
-
-  if (allowedIds.size === 0) {
-    return new Map<string, ContactEventOption>();
-  }
-
-  const now = new Date();
-  const records = await prisma.event.findMany({
-    where: {
-      tenantId,
-      id: { in: Array.from(allowedIds) },
-      date: { gte: now }
-    },
-    orderBy: { date: 'asc' },
-    select: {
-      id: true,
-      title: true,
-      date: true
-    }
-  });
-
-  const formatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
-  const map = new Map<string, ContactEventOption>();
-
-  for (const record of records) {
-    map.set(record.id, {
-      id: record.id,
-      title: record.title,
-      dateLabel: formatter.format(record.date)
-    });
-  }
-
-  return map;
-}
-

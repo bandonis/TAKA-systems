@@ -340,42 +340,38 @@ atjaunot iepriekšējo
 
 8. Contact Form Backend Requirements
 
-CAPTCHA obligāts
+Contact block uses the shared Contact Form spec (see `docs/spec.md` §7).
 
-Auto-save lead pēc 1. lauka aizpildīšanas
+Additional rules specific to landing pages:
 
-Atšķirīgi mode:
-
-B2B → saglabā B2BLead
-
-B2C → saglabā EventParticipant (pending)
-
-Cenas aprēķins no central event rules
-
-GDPR checkbox (optional, Stage 4)
+    Each landing can include exactly one primary Contact block in MVP.
+    Contact block has a mode toggle:
+        "B2C (event registration)" – ties the form to specific Event(s)
+        "B2B (company inquiry)" – ties the form to Event Types ("hike types")
+    For B2C mode:
+        Block configuration points to one or more upcoming Events for this tenant.
+        Form shows B2C fields and pricing as per §7.3.
+    For B2B mode:
+        Block configuration points to a list of Event Types ("hike types").
+        Form shows B2B fields as per §7.4 (no prices, no ticket count).
 
 9. Event Selection Logic (VERY IMPORTANT)
-For B2C
 
-Formā tiek rādīti VISI pieejamie nākamie eventu datumi šim eventam.
+-----------------------------------------
 
-Ja kādam eventam nav vietu → disable, bet joprojām rādīt (“Pilns”).
+B2C mode:
 
-For B2B
+    Form displays ALL future Event dates linked to this Landing (for the selected Event).
+    If an Event is "full" or disabled, it can be hidden or shown as "Full" – Stage 2+.
+    Pricing and Early bird behaviour follow §7.3.
 
-Rādās event types (Tumsas pārgājiens, Ziemassvētku pārgājiens).
+B2B mode:
 
-Neviens konkrēts datums nav jāizvēlas.
-
-10. Publishing Logic
-
-Kad landing ir “published”:
-
-tiek veidots statisks HTML (ISR recommended)
-
-tiek injectēti third-party scripts
-
-tiek konvertēti visi block data React komponentēs
+    Form displays a dropdown of Event Types ("hike types"), not concrete dates:
+        e.g. "Tumsas pārgājiens", "Ziemassvētku pārgājiens".
+    Tenant can create / edit / delete Event Types in the Events admin area.
+        Each Event Type configuration should mention: "Appears in B2B contact form type selector."
+    No ticket prices or counts are shown for B2B submissions.
 
 11. What Cursor MUST NOT Implement Now (Stage-3 constraints)
 
@@ -499,67 +495,43 @@ The landing builder does **not** need drag-and-drop in the first version.
 The ordering is stored on the landing version, so the public page always renders blocks
 in the same order as configured in the builder.
 
-### Contact form and event selection
+### Unified contact form block
 
-The landing contact form is responsible for registering participants to events.
-To keep the system simple, there is only **one** contact form type, with a configurable
-list of events.
+The landing contact form aligns with the unified B2C/B2B spec and the new design reference.
 
-#### Event selection model
+#### Block-level rules
 
-    Each landing version may include at most one **Contact form** block.
-    The Contact form block has a configuration field, e.g. `allowedEventIds: string[]`,
+- Each landing can include **only one** contact block. The builder must disable the “add” option (and show a warning) once one exists.
+- Block JSON stores:
+  - `mode: "b2c" | "b2b"`
+  - `allowedEventIds: string[]` (B2C mode)
+  - `allowedEventTypeIds: string[]` (B2B mode)
+  - `testimonials: Array<{ author: string; quote: string; rating?: number }>` for the left-hand swiper panel.
 
-  that stores the list of events that are allowed for this landing.
+#### B2C configuration (Privātpersonām)
 
-    In the admin UI, when editing the Contact form block, the user can:
-        search and select one or more upcoming events owned by the same tenant;
-        remove events from this list at any time.
+- Admin selects upcoming events. Empty list = misconfiguration warning (“Please select at least one event”).
+- Public UI:
+  - If only one event, hide the dropdown and lock the choice.
+  - Otherwise render “Tuvākie pārgājieni” select.
+  - Show ticket count input, total price (`ticketCount × active price`), early-bird badge/timer when applicable, and marketing-consent checkbox (checked by default).
+- Submissions auto-save to `EventParticipant` with `registrationStatus` updates and respect tenant `paymentMode` (Stripe vs manual).
 
-There is no explicit “single vs multi event mode” switch:
+#### B2B configuration (Uzņēmumiem)
 
-    If `allowedEventIds.length === 0`:
-        This is considered a misconfiguration; the builder should show a warning
+- Admin selects Event Types (hike types) rather than events.
+- Form exposes company name, contact person, email, phone, participants count, preferred date, comment, and marketing consent.
+- No pricing/total fields are shown in this mode.
 
-    (e.g. “Please select at least one event for this contact form”).
+#### Testimonials panel
 
-    The public page may hide the form or show a generic error.
-
-    If `allowedEventIds.length === 1`:
-
-    The form behaves as a **single-event** registration form.
-    The public UI may hide the event dropdown and implicitly use that event,
-
-    or render a disabled select with a single option. In both cases, the
-    submitted registration is linked to that one event.
-
-    If `allowedEventIds.length > 1`:
-        The public form must show an **Event** select field where the participant
-
-    chooses one of the configured events (e.g. “Darkness hike – Dec 5”, “Mindfulness
-    hike – Dec 12”, etc.).
-
-    On submit, the registration is linked to the selected event.
+- Contact block can render a sibling testimonials slider (per design). Content is stored per block so it is fully tenant-editable.
 
 #### Registration behavior
 
-    Submissions from the landing contact form create `EventParticipant` records,
-
-  exactly like registrations from the public event page.
-
-    Each participant created from a landing contact form should store a reference
-
-  to the landing page / landing version as the **source**, e.g. sourceLandingId
-  or `sourceLandingSlug`, so analytics can later answer “Which landing generated
-  this registration?”.
-
-The UX goal: a tenant can create one “Darkness hikes” landing page with a rich,
-evergreen description and let participants choose among multiple concrete future
-event dates directly in the contact form, without creating separate landings for
-each date.
-
-There is no separate “single event” mode. The contact form always supports
-multiple events. A “single event” case is simply when allowedEventIds has one item.
+- B2C submissions create/update `EventParticipant` rows with attribution (`landingId`), `marketingConsent`, `priceAtTheMoment`, and the new `registrationStatus` enum.
+- B2B submissions create/update `B2BLead` rows with company/contact fields, `eventTypeId`, and `status` transitions (`draft` → `open`).
+- Auto-save triggers after the first required field blur so partial data is never lost.
 Blocks cannot be re-arranged by drag and drop.
 Reordering is performed only by:
 

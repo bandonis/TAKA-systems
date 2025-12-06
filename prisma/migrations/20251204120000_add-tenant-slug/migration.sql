@@ -1,6 +1,5 @@
--- Add nullable slug column for tenant public paths.
-ALTER TABLE "Tenant" ADD COLUMN "slug" TEXT;
+-- Baseline slug column migration (idempotent)
+ALTER TABLE "Tenant"
+  ADD COLUMN IF NOT EXISTS "slug" TEXT;
 
--- Ensure tenant slugs remain unique when present.
-CREATE UNIQUE INDEX "Tenant_slug_key" ON "Tenant"("slug");
-
+CREATE UNIQUE INDEX IF NOT EXISTS "Tenant_slug_key" ON "Tenant"("slug") WHERE slug IS NOT NULL;

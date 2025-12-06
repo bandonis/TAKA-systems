@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 
 import { getPrisma } from '@/lib/db';
-import { BLOCK_VARIANT_IDS, getBlockVariantDefinition } from '@/lib/landings/blocks';
+import { BLOCK_VARIANT_IDS, getBlockVariantDefinition, isContactFormBlock } from '@/lib/landings/blocks';
 import { withTenantRoute, NotFoundError } from '@/lib/tenants';
 
 export const runtime = "nodejs";
@@ -44,6 +44,20 @@ export const POST = withTenantRoute<{ landingId: string }>(
     });
 
     const nextOrderIndex = (aggregate._max.orderIndex ?? -1) + 1;
+
+    if (definition.id === 'contactForm') {
+      const existing = await prisma.landingBlock.findFirst({
+        where: { landingId, tenantId: tenant.tenantId, blockType: definition.blockType },
+        select: { id: true, blockType: true, content: true }
+      });
+
+      if (existing && isContactFormBlock(existing)) {
+        return NextResponse.json(
+          { error: 'Only one contact form block is allowed per landing.' },
+          { status: 400 }
+        );
+      }
+    }
 
     const block = await prisma.landingBlock.create({
       data: {

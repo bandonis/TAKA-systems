@@ -27,8 +27,20 @@ export type BlockContent = Record<string, unknown> & {
   config?: Record<string, unknown>;
 };
 
+export type ContactFormTestimonial = {
+  id: string;
+  author: string;
+  quote: string;
+  rating?: number;
+};
+
+export type ContactFormMode = 'b2c' | 'b2b';
+
 export type ContactFormConfig = {
+  mode: ContactFormMode;
   allowedEventIds: string[];
+  allowedEventTypeIds: string[];
+  testimonials: ContactFormTestimonial[];
 };
 
 export const CONTACT_FORM_VARIANT = 'contactForm';
@@ -113,14 +125,17 @@ export const BLOCK_VARIANTS: BlockVariantDefinition[] = [
   {
     id: 'contactForm',
     label: 'Contact form',
-    description: 'Capture registrations tied to events.',
+    description: 'Capture registrations for events or business inquiries.',
     blockType: 'CUSTOM_HTML',
     variant: CONTACT_FORM_VARIANT,
     defaultContent: {
       heading: 'Ready to join?',
       description: 'Pick a date and tell us a bit about you.',
       config: {
-        allowedEventIds: []
+        mode: 'b2c',
+        allowedEventIds: [],
+        allowedEventTypeIds: [],
+        testimonials: []
       },
       variant: CONTACT_FORM_VARIANT
     }
@@ -163,25 +178,55 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function normalizeTestimonials(value: unknown): ContactFormTestimonial[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item, index) => {
+      if (!isPlainObject(item) || typeof item.quote !== 'string' || typeof item.author !== 'string') {
+        return null;
+      }
+      const ratingValue = typeof item.rating === 'number' ? item.rating : undefined;
+      const idValue = typeof item.id === 'string' && item.id.length > 0 ? item.id : `testimonial-${index}`;
+      return { id: idValue, author: item.author, quote: item.quote, rating: ratingValue };
+    })
+    .filter((item): item is ContactFormTestimonial => item !== null);
+}
+
 export function getContactFormConfig(block: Pick<LandingBlock, 'content'>): ContactFormConfig {
   const parsed = parseBlockContent(block.content);
   const maybeConfig = parsed.config;
 
   if (isPlainObject(maybeConfig)) {
-    const allowed = maybeConfig.allowedEventIds;
-    if (Array.isArray(allowed) && allowed.every((item) => typeof item === 'string')) {
-      return { allowedEventIds: allowed as string[] };
-    }
+    return {
+      mode: maybeConfig.mode === 'b2b' ? 'b2b' : 'b2c',
+      allowedEventIds: Array.isArray(maybeConfig.allowedEventIds)
+        ? (maybeConfig.allowedEventIds as string[]).filter((id): id is string => typeof id === 'string')
+        : [],
+      allowedEventTypeIds: Array.isArray(maybeConfig.allowedEventTypeIds)
+        ? (maybeConfig.allowedEventTypeIds as string[]).filter((id): id is string => typeof id === 'string')
+        : [],
+      testimonials: normalizeTestimonials(maybeConfig.testimonials)
+    };
   }
 
-  return { allowedEventIds: [] };
+  return {
+    mode: 'b2c',
+    allowedEventIds: [],
+    allowedEventTypeIds: [],
+    testimonials: []
+  };
 }
 
 export function buildContactFormContent(block: Pick<LandingBlock, 'content'>, config: ContactFormConfig) {
   const parsed = parseBlockContent(block.content);
   const nextConfig = {
     ...(isPlainObject(parsed.config) ? parsed.config : {}),
-    allowedEventIds: config.allowedEventIds
+    mode: config.mode,
+    allowedEventIds: config.allowedEventIds,
+    allowedEventTypeIds: config.allowedEventTypeIds,
+    testimonials: config.testimonials
   };
 
   return {

@@ -6,7 +6,13 @@ import { getSession } from '@/lib/auth/cookies';
 import { getPrisma } from '@/lib/db';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BLOCK_VARIANTS, getContactFormConfig, isContactFormBlock, resolveVariantIdForBlock } from '@/lib/landings/blocks';
+import type { ContactFormConfig } from '@/lib/landings/blocks';
+import {
+  BLOCK_VARIANTS,
+  getContactFormConfig,
+  isContactFormBlock,
+  resolveVariantIdForBlock
+} from '@/lib/landings/blocks';
 import { getLandingPublicPath } from '@/lib/landings/urls';
 import { getTenantPublicSlug, type TenantSlugSource } from '@/lib/tenant/urls';
 
@@ -21,18 +27,33 @@ type EventOption = {
   dateLabel: string;
 };
 
+type EventTypeOption = {
+  id: string;
+  name: string;
+};
+
 const blockOptionsForAdd = BLOCK_VARIANTS.map((variant) => ({
   id: variant.id,
   label: variant.label,
   description: variant.description
 }));
 
+const EMPTY_CONTACT_CONFIG: ContactFormConfig = {
+  mode: 'b2c',
+  allowedEventIds: [],
+  allowedEventTypeIds: [],
+  testimonials: []
+};
+
 export default async function LandingDetailPage({ params }: { params: Promise<{ landingId: string }> }) {
   const { landingId } = await params;
   const { landing, tenant } = await getLandingData(landingId);
   const tenantSlug = getTenantPublicSlug(tenant);
   const events = await getUpcomingEvents(tenant.id);
+  const eventTypes = await getEventTypes(tenant.id);
   const publicPath = getLandingPublicPath({ tenantSlug, landingSlug: landing.slug });
+
+  const hasContactBlock = landing.blocks.some((block) => isContactFormBlock(block));
 
   return (
     <section className="space-y-6 pb-24 lg:pb-0">
@@ -90,7 +111,7 @@ export default async function LandingDetailPage({ params }: { params: Promise<{ 
               const variantDefinition = variantId ? BLOCK_VARIANTS.find((variant) => variant.id === variantId) : null;
               const displayLabel = variantDefinition?.label ?? block.blockType;
               const isContactForm = isContactFormBlock(block);
-              const contactConfig = isContactForm ? getContactFormConfig(block) : { allowedEventIds: [] };
+              const contactConfig = isContactForm ? getContactFormConfig(block) : EMPTY_CONTACT_CONFIG;
 
               return (
                 <BlockCard
@@ -108,6 +129,7 @@ export default async function LandingDetailPage({ params }: { params: Promise<{ 
                   isContactForm={isContactForm}
                   contactConfig={contactConfig}
                   events={events}
+                  eventTypes={eventTypes}
                 />
               );
             })
@@ -117,7 +139,16 @@ export default async function LandingDetailPage({ params }: { params: Promise<{ 
             </div>
           )}
 
-          <AddBlockControl landingId={landing.id} options={blockOptionsForAdd} />
+          <AddBlockControl
+            landingId={landing.id}
+            options={blockOptionsForAdd}
+            disabledOptionIds={hasContactBlock ? ['contactForm'] : []}
+            warningMessage={
+              hasContactBlock
+                ? 'Only one contact form block is allowed per landing. Edit the existing block instead.'
+                : undefined
+            }
+          />
         </CardContent>
       </Card>
     </section>
@@ -194,5 +225,18 @@ async function getUpcomingEvents(tenantId: string): Promise<EventOption[]> {
     title: event.title,
     dateLabel: formatter.format(event.date)
   }));
+}
+
+async function getEventTypes(tenantId: string): Promise<EventTypeOption[]> {
+  const prisma = getPrisma();
+  const types = await prisma.eventType.findMany({
+    where: { tenantId },
+    orderBy: { name: 'asc' },
+    select: {
+      id: true,
+      name: true
+    }
+  });
+  return types;
 }
 

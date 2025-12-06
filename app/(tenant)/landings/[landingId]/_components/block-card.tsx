@@ -5,12 +5,18 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, Loader2, Monitor, Smartphone, Trash2 } from 'lucide-react';
 
+import type { ContactFormConfig } from '@/lib/landings/blocks';
 import { Button } from '@/components/ui/button';
 
 type EventOption = {
   id: string;
   title: string;
   dateLabel: string;
+};
+
+type EventTypeOption = {
+  id: string;
+  name: string;
 };
 
 type BlockCardProps = {
@@ -25,8 +31,16 @@ type BlockCardProps = {
   visibleMobile: boolean;
   visibleDesktop: boolean;
   isContactForm: boolean;
-  contactConfig: { allowedEventIds: string[] };
+  contactConfig: ContactFormConfig;
   events: EventOption[];
+  eventTypes: EventTypeOption[];
+};
+
+const EMPTY_CONTACT_CONFIG: ContactFormConfig = {
+  mode: 'b2c',
+  allowedEventIds: [],
+  allowedEventTypeIds: [],
+  testimonials: []
 };
 
 export function BlockCard(props: BlockCardProps) {
@@ -43,12 +57,12 @@ export function BlockCard(props: BlockCardProps) {
     setVisibilityState({ mobile: props.visibleMobile, desktop: props.visibleDesktop });
   }, [props.visibleMobile, props.visibleDesktop]);
 
-  const [contactSelection, setContactSelection] = useState<string[]>(() =>
-    dedupeEventIds(props.contactConfig.allowedEventIds)
+  const [contactConfigState, setContactConfigState] = useState<ContactFormConfig>(() =>
+    normalizeContactConfig(props.contactConfig)
   );
   useEffect(() => {
-    setContactSelection(dedupeEventIds(props.contactConfig.allowedEventIds));
-  }, [props.contactConfig.allowedEventIds]);
+    setContactConfigState(normalizeContactConfig(props.contactConfig));
+  }, [props.contactConfig]);
 
   const mutate = (init: RequestInit, options?: { onError?: () => void }) => {
     startTransition(() => {
@@ -112,28 +126,30 @@ export function BlockCard(props: BlockCardProps) {
     });
   };
 
-  const handleContactSelection = (eventId: string, isChecked: boolean) => {
-    const previous = contactSelection;
-    const nextSet = new Set(previous);
-    if (isChecked) {
-      nextSet.add(eventId);
-    } else {
-      nextSet.delete(eventId);
-    }
-    const nextSelection = Array.from(nextSet);
-    setContactSelection(nextSelection);
+  const applyContactConfig = (nextConfig: ContactFormConfig) => {
+    const previous = contactConfigState;
+    setContactConfigState(nextConfig);
     mutate(
       {
         method: 'PATCH',
-        body: JSON.stringify({ action: 'contactConfig', allowedEventIds: nextSelection })
+        body: JSON.stringify({
+          action: 'contactConfig',
+          mode: nextConfig.mode,
+          allowedEventIds: nextConfig.allowedEventIds,
+          allowedEventTypeIds: nextConfig.allowedEventTypeIds,
+          testimonials: nextConfig.testimonials
+        })
       },
       {
-        onError: () => setContactSelection(previous)
+        onError: () => setContactConfigState(previous)
       }
     );
   };
 
-  const contactEmptyWarning = props.isContactForm && contactSelection.length === 0;
+  const contactWarning =
+    props.isContactForm &&
+    ((contactConfigState.mode === 'b2c' && contactConfigState.allowedEventIds.length === 0) ||
+      (contactConfigState.mode === 'b2b' && contactConfigState.allowedEventTypeIds.length === 0));
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card/30 p-4">
@@ -185,44 +201,14 @@ export function BlockCard(props: BlockCardProps) {
       </div>
 
       {props.isContactForm ? (
-        <div className="space-y-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-foreground">Contact form events</p>
-            <p className="text-xs text-muted-foreground">{contactSelection.length} selected</p>
-          </div>
-          {props.events.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No upcoming events available. Create one to enable this form.</p>
-          ) : (
-            <div className="space-y-2">
-              {props.events.map((eventOption) => {
-                const isSelected = contactSelection.includes(eventOption.id);
-                return (
-                  <label
-                    key={eventOption.id}
-                    className={`flex w-full items-start gap-3 rounded-md border p-3 text-left transition ${
-                      isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/60'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
-                      checked={isSelected}
-                      onChange={(event) => handleContactSelection(eventOption.id, event.target.checked)}
-                      disabled={isPending}
-                    />
-                    <span className="flex flex-col">
-                      <span className="text-sm font-semibold text-foreground">{eventOption.title}</span>
-                      <span className="text-xs uppercase tracking-wide text-muted-foreground">{eventOption.dateLabel}</span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-          {contactEmptyWarning && (
-            <p className="text-xs font-medium text-amber-600">Contact form requires at least one event.</p>
-          )}
-        </div>
+        <ContactConfigurator
+          config={contactConfigState}
+          events={props.events}
+          eventTypes={props.eventTypes}
+          disabled={isPending}
+          warning={contactWarning}
+          onConfigChange={applyContactConfig}
+        />
       ) : null}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -256,5 +242,250 @@ function VisibilityToggle({ label, icon, active, disabled, onClick }: { label: s
       <span>{label}</span>
     </button>
   );
+}
+
+type ContactConfiguratorProps = {
+  config: ContactFormConfig;
+  events: EventOption[];
+  eventTypes: EventTypeOption[];
+  disabled: boolean;
+  warning: boolean;
+  onConfigChange: (nextConfig: ContactFormConfig) => void;
+};
+
+function ContactConfigurator({ config, events, eventTypes, disabled, warning, onConfigChange }: ContactConfiguratorProps) {
+  const updateMode = (mode: ContactFormConfig['mode']) => {
+    if (mode === config.mode) {
+      return;
+    }
+    onConfigChange({ ...config, mode });
+  };
+
+  const toggleEvent = (eventId: string, checked: boolean) => {
+    const set = new Set(config.allowedEventIds);
+    if (checked) {
+      set.add(eventId);
+    } else {
+      set.delete(eventId);
+    }
+    onConfigChange({ ...config, allowedEventIds: Array.from(set) });
+  };
+
+  const toggleEventType = (typeId: string, checked: boolean) => {
+    const set = new Set(config.allowedEventTypeIds);
+    if (checked) {
+      set.add(typeId);
+    } else {
+      set.delete(typeId);
+    }
+    onConfigChange({ ...config, allowedEventTypeIds: Array.from(set) });
+  };
+
+  const updateTestimonial = (id: string, partial: Partial<ContactFormTestimonial>) => {
+    const items = config.testimonials.map((item) => (item.id === id ? { ...item, ...partial } : item));
+    onConfigChange({ ...config, testimonials: items });
+  };
+
+  const addTestimonial = () => {
+    const newItem: ContactFormTestimonial = {
+      id: crypto.randomUUID(),
+      author: 'New author',
+      quote: 'Share a kind word...'
+    };
+    onConfigChange({ ...config, testimonials: [...config.testimonials, newItem] });
+  };
+
+  const removeTestimonial = (id: string) => {
+    onConfigChange({ ...config, testimonials: config.testimonials.filter((item) => item.id !== id) });
+  };
+
+  return (
+    <div className="space-y-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={config.mode === 'b2c' ? 'default' : 'outline'}
+          disabled={disabled}
+          onClick={() => updateMode('b2c')}
+        >
+          B2C (Private persons)
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={config.mode === 'b2b' ? 'default' : 'outline'}
+          disabled={disabled}
+          onClick={() => updateMode('b2b')}
+        >
+          B2B (Companies)
+        </Button>
+      </div>
+
+      {config.mode === 'b2c' ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-foreground">Allowed events ({config.allowedEventIds.length})</p>
+            {events.length === 0 && (
+              <p className="text-xs text-muted-foreground">No upcoming events. Create one first.</p>
+            )}
+          </div>
+          {events.length > 0 && (
+            <div className="space-y-2">
+              {events.map((eventOption) => {
+                const isSelected = config.allowedEventIds.includes(eventOption.id);
+                return (
+                  <label
+                    key={eventOption.id}
+                    className={`flex w-full items-start gap-3 rounded-md border p-3 text-left transition ${
+                      isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/60'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                      checked={isSelected}
+                      onChange={(event) => toggleEvent(eventOption.id, event.target.checked)}
+                      disabled={disabled}
+                    />
+                    <span className="flex flex-col">
+                      <span className="text-sm font-semibold text-foreground">{eventOption.title}</span>
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">{eventOption.dateLabel}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-foreground">Allowed event types ({config.allowedEventTypeIds.length})</p>
+            {eventTypes.length === 0 && (
+              <p className="text-xs text-muted-foreground">No event types yet. Create one in Events → Types.</p>
+            )}
+          </div>
+          {eventTypes.length > 0 && (
+            <div className="space-y-2">
+              {eventTypes.map((eventType) => {
+                const isSelected = config.allowedEventTypeIds.includes(eventType.id);
+                return (
+                  <label
+                    key={eventType.id}
+                    className={`flex w-full items-center justify-between rounded-md border p-3 text-left transition ${
+                      isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/60'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold text-foreground">{eventType.name}</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                      checked={isSelected}
+                      onChange={(event) => toggleEventType(eventType.id, event.target.checked)}
+                      disabled={disabled}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-foreground">Testimonials ({config.testimonials.length})</p>
+          <Button type="button" size="sm" variant="outline" onClick={addTestimonial} disabled={disabled}>
+            Add testimonial
+          </Button>
+        </div>
+        {config.testimonials.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No testimonials configured. Add one to show the side panel.</p>
+        ) : (
+          <div className="space-y-2">
+            {config.testimonials.map((testimonial) => (
+              <div key={testimonial.id} className="rounded-md border border-border bg-background/60 p-3 space-y-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                  <label className="flex-1 space-y-1 text-xs font-medium text-foreground">
+                    Author
+                    <input
+                      type="text"
+                      value={testimonial.author}
+                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      disabled={disabled}
+                      onChange={(event) => updateTestimonial(testimonial.id, { author: event.target.value })}
+                    />
+                  </label>
+                  <label className="flex w-full max-w-[120px] flex-col text-xs font-medium text-foreground">
+                    Rating
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={testimonial.rating ?? ''}
+                      className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      disabled={disabled}
+                      onChange={(event) =>
+                        updateTestimonial(testimonial.id, {
+                          rating: event.target.value === '' ? undefined : Number(event.target.value)
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <label className="space-y-1 text-xs font-medium text-foreground">
+                  Quote
+                  <textarea
+                    value={testimonial.quote}
+                    className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                    rows={3}
+                    disabled={disabled}
+                    onChange={(event) => updateTestimonial(testimonial.id, { quote: event.target.value })}
+                  />
+                </label>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    disabled={disabled}
+                    onClick={() => removeTestimonial(testimonial.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {warning && (
+        <p className="text-xs font-medium text-amber-600">
+          {config.mode === 'b2c'
+            ? 'Contact form requires at least one allowed event.'
+            : 'Contact form requires at least one event type.'}
+        </p>
+      )}
+    </div>
+  );
+}
+
+type ContactFormTestimonial = ContactFormConfig['testimonials'][number];
+
+function normalizeContactConfig(config: ContactFormConfig): ContactFormConfig {
+  return {
+    mode: config.mode === 'b2b' ? 'b2b' : 'b2c',
+    allowedEventIds: dedupeEventIds(config.allowedEventIds),
+    allowedEventTypeIds: dedupeEventIds(config.allowedEventTypeIds),
+    testimonials: config.testimonials.map((item, index) => ({
+      id: item.id || `testimonial-${index}`,
+      author: item.author,
+      quote: item.quote,
+      rating: item.rating
+    }))
+  };
 }
 

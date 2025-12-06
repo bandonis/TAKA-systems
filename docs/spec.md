@@ -448,28 +448,127 @@ Logs: sentAt, openedAt, paidAt
 ==========================================
 7. CONTACT FORMS
 ==========================================
-Form features:
+7.1. Overview
+-------------TAKA has a unified ContactForm system used in multiple contexts:
 
-Tenant can create unlimited forms
+    B2C landing contact form (public, tied to a specific Event)
+    B2B inquiry form (public, tied to an Event type / "hike type")
+    Optional embeddable modes in later stages
 
-Each form has customizable fields
+All forms share a core structure, then diverge by "mode" (B2C vs B2B).7.2. Common field model
+-----------------------Each ContactForm submission creates one of:
 
-Each field:
+    `EventParticipant` (B2C mode)
+    `B2BLead` (B2B mode)
 
-type
+Common logical fields:
 
-label
+    `email` (string, required)
+    `name` (string, required)
+    `phone` (string, optional but recommended)
+    `message` (string, optional free-text comment)
+    `marketingConsent` (boolean, default `true`)
+        label: "Vēlos saņemt pārgājienu atlaides un īpašos piedāvājumus"
+        when checked (default), we store a marketing consent entry (see Consent / Email / GDPR section)
 
-placeholder
+Backend must persist:
 
-required
+    `ip` or similar metadata (if already present in spec)
+    timestamps for createdAt / updatedAt
 
-options
+7.3. B2C Contact Form (Landing mode)
+------------------------------------Context:
 
-orderIndex
+    Used on public landing pages for individual events.
+    Target model: `EventParticipant` with `paymentStatus = PENDING` by default.
 
-Embeddable mode:
-<iframe src="{tenantUrl}/embed/form/{formId}" />
+Form fields (UI):
+
+    `Name` (required)
+    `Email` (required)
+    `Phone` (optional)
+    `Upcoming hike / event date` (select, required)
+        options limited to the landing block configuration
+    `Ticket type` (radio or segmented control) – single, group, early bird, etc.
+    `Ticket count` (integer >=1, required, default 1)
+    `Total price` read-only field calculated as `ticketCount × active price`
+    `Comment / message` (optional)
+    `MarketingConsent` checkbox (default checked, boolean stored on participant)
+
+Pricing display:
+
+    Show the active price for the selected ticket type.
+    If an Early bird price is active:
+        show early bird price
+        show text like: "Cena spēkā līdz {earlyBirdUntil}"
+    If Early bird expired:
+        show normal price only.
+
+Submit behaviour (MVP):
+
+    Always create/update an `EventParticipant` row via auto-save before redirecting anywhere.
+        `registrationStatus` enum tracks `draft | submitted | pending_payment | completed`.
+        `marketingConsent`, `ticketCount`, `priceAtTheMoment`, `eventId`, `landingId` must be persisted.
+    Tenant settings determine payment flow:
+        paymentMode = STRIPE → after submit create/update participant, then start Stripe checkout.
+            On Stripe failure we keep participant row and show error.
+        paymentMode = MANUAL → simply confirm submission, mark `registrationStatus = submitted`, and notify tenant (future email).
+
+The old “Unable to start registration” behaviour must be replaced by “always save the data first” behaviour.7.4. B2B Contact Form (Company mode)
+------------------------------------Context:
+
+    Used by companies to request a private or custom hike.
+    Not tied to a specific event instance, but to an "event type" / hike type.
+
+Form fields (UI):
+
+    Toggle: "Privātpersonām / Uzņēmumiem" (switch between B2C and B2B modes)
+    In B2B mode:
+
+    `Company name` (optional, string)
+    `Contact person name` (required)
+    `Email` (required)
+    `Phone` (required)
+    `Company email` + `company phone` fields map 1:1 to DB.
+    `Hike type` (select from Event Types, required – stored via `eventTypeId`)
+    `Estimated participant count` (optional integer)
+    `Preferred date or time window` (optional text)
+    `Message` (optional)
+    `MarketingConsent` checkbox (default checked → create consent entry)
+
+Important:
+
+    **No prices are shown in B2B mode**.
+    **No ticket count price calculation** is displayed.
+    Submission creates/updates a `B2BLead` record with:
+        `companyName`, `companyPerson`, `companyEmail`, `companyPhone`
+        `eventTypeId`
+        `participantEstimate`, `preferredDate`, `comment`
+        `marketingConsent` flag + consent record
+        `status` transitions `draft → open`
+
+7.5. Auto-save behaviour (Leads)
+--------------------------------
+We must not lose data when someone partially fills the form.
+
+    When the first required field (email/name) is blurred → call autosave endpoint.
+        B2C: Create `EventParticipant` with `registrationStatus = draft`, `marketingConsent = bool`, `landingId`.
+        B2B: Create `B2BLead` with `status = draft`.
+        Response must include the saved record ID for further PATCH calls.
+    Every subsequent blur/change should PATCH the existing record (debounced client-side).
+    Submit transitions:
+        B2C manual flow → `registrationStatus = submitted`.
+        B2C stripe flow → `registrationStatus = pending_payment` until payment success.
+        B2B → `status = open`.
+    Auto-save endpoints must be idempotent and validate tenant/landing ownership.
+
+7.6. Embeddable mode (future)
+-----------------------------
+
+    Contact form may later be embeddable via:
+
+  ```html
+  <iframe src="{tenantUrl}/embed/form/{formId}" />
 
 ==========================================
 8. LANDING BUILDER

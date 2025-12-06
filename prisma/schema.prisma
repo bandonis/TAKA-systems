@@ -70,6 +70,8 @@ model TenantSettings {
   emailFromAddress       String?
   analyticsConfig        Json?
   notificationEmails     String[]
+  paymentMode            PaymentMode @default(STRIPE)
+  contactFormCopy        Json?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -87,6 +89,7 @@ model EventType {
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
   events                   Event[]
+  b2bLeads                 B2BLead[]
   tenant                   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
@@ -127,14 +130,18 @@ model EventParticipant {
   name                    String
   email                   String
   phone                   String?
-  ticketCount             Int           @default(1)
+  ticketCount             Int?          @default(1)
   amountPaid              Decimal?      @db.Decimal(12, 2)
+  priceAtTheMoment        Decimal?      @db.Decimal(12, 2)
   paymentStatus           PaymentStatus @default(PENDING)
   paymentType             PaymentType?
   stripeSessionId         String?
   paymentReference        String?
   hasConsent              Boolean       @default(false)
+  marketingConsent        Boolean       @default(true)
+  registrationStatus      RegistrationStatus @default(DRAFT)
   registeredFromLandingId String?
+  comment                 String?
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
   event                   Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -243,19 +250,30 @@ model Lead {
 model B2BLead {
   id                  String    @id @default(cuid())
   tenantId            String
+  companyName         String?
+  companyPerson       String?
   email               String?
+  companyEmail        String?
   phone               String?
-  companyName         String
+  companyPhone        String?
+  marketingConsent    Boolean   @default(true)
   participantEstimate Int?
+  ticketCount         Int?
   eventType           String?
+  eventTypeId         String?
+  priceAtTheMoment    Decimal?  @db.Decimal(12, 2)
   comment             String?
+  preferredDate       String?
   source              String?
+  status              B2BLeadStatus @default(DRAFT)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   deals               B2BDeal[]
+  eventTypeRef        EventType? @relation(fields: [eventTypeId], references: [id])
   tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([eventTypeId])
 }
 
 model B2BDeal {
@@ -472,6 +490,23 @@ enum PaymentType {
   ONLINE
   CASH
   TRANSFER
+}
+
+enum RegistrationStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_PAYMENT
+  COMPLETED
+}
+
+enum PaymentMode {
+  STRIPE
+  MANUAL
+}
+
+enum B2BLeadStatus {
+  DRAFT
+  OPEN
 }
 
 enum ConsentType {
